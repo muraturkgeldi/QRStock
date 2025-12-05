@@ -1,0 +1,165 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's profile in the system.",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's profile picture."
+        }
+      },
+      "required": ["displayName", "email"]
+    },
+    "Product": {
+        "title": "Product",
+        "description": "Represents a product in the inventory.",
+        "type": "object",
+        "properties": {
+            "uid": { "type": "string", "description": "The user ID of the owner of this item." },
+            "name": { "type": "string" },
+            "description": { "type": "string" },
+            "imageUrl": { "type": "string", "format": "uri" },
+            "imageHint": { "type": "string" },
+            "sku": { "type": "string", "description": "User-facing Stock Keeping Unit." },
+            "minStockLevel": { "type": "number", "description": "The minimum stock level before it is considered critical." },
+            "tags": { "type": "array", "items": { "type": "string" }, "description": "A list of tags for categorization." }
+        },
+        "required": ["uid", "name", "sku"]
+    },
+    "Location": {
+        "title": "Location",
+        "description": "Represents a physical location like a warehouse or a shelf.",
+        "type": "object",
+        "properties": {
+            "uid": { "type": "string", "description": "The user ID of the owner of this item." },
+            "name": { "type": "string" },
+            "type": { "type": "string", "enum": ["warehouse", "corridor", "shelf"] },
+            "parentId": { "type": "string", "description": "ID of the parent location." }
+        },
+        "required": ["uid", "name", "type"]
+    },
+    "StockItem": {
+        "title": "Stock Item",
+        "description": "Represents the quantity of a specific product at a specific location.",
+        "type": "object",
+        "properties": {
+            "productId": { "type": "string" },
+            "locationId": { "type": "string" },
+            "quantity": { "type": "number" },
+            "uid": { "type": "string", "description": "The user ID of the owner of this item." }
+        },
+        "required": ["productId", "locationId", "quantity", "uid"]
+    },
+    "StockMovement": {
+        "title": "Stock Movement",
+        "description": "Records a movement (in or out) of a stock item.",
+        "type": "object",
+        "properties": {
+            "productId": { "type": "string" },
+            "locationId": { "type": "string" },
+            "type": { "type": "string", "enum": ["in", "out", "transfer"] },
+            "quantity": { "type": "number" },
+            "date": { "type": "string", "format": "date-time" },
+            "userId": { "type": "string", "description": "The name or ID of the user performing the action." },
+            "requester": { "type": "string", "description": "Name of the person requesting the stock for 'out' movements." },
+            "description": { "type": "string", "description": "A description or note for the movement." },
+            "uid": { "type": "string", "description": "The user ID of the owner of this item." }
+        },
+        "required": ["productId", "locationId", "type", "quantity", "date", "userId", "uid"]
+    },
+    "AppSettings": {
+      "title": "Application Settings",
+      "description": "Stores global settings for the application, owned by a user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user ID of the owner of these settings."
+        },
+        "mailingList": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "email"
+          },
+          "description": "A list of email addresses for receiving reports."
+        }
+      },
+      "required": ["uid"]
+    },
+    "PurchaseOrder": {
+        "title": "Purchase Order",
+        "description": "Represents a purchase order for products.",
+        "type": "object",
+        "properties": {
+            "uid": { "type": "string" },
+            "orderNumber": { "type": "string" },
+            "orderDate": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["draft", "ordered", "partially-received", "received"] },
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "productId": { "type": "string" },
+                        "productName": { "type": "string" },
+                        "productSku": { "type": "string" },
+                        "quantity": { "type": "number", "description": "Total ordered quantity" },
+                        "receivedQuantity": { "type": "number", "description": "Quantity that has been received" },
+                        "remainingQuantity": { "type": "number", "description": "Quantity still pending delivery" },
+                        "description": { "type": "string", "description": "A note specific to this order item." }
+                    },
+                    "required": ["productId", "quantity", "receivedQuantity", "remainingQuantity"]
+                }
+            }
+        },
+        "required": ["uid", "orderNumber", "orderDate", "status", "items"]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous", "password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores public profiles for users."
+    },
+    "/products/{productId}": {
+        "schema": { "$ref": "#/entities/Product" },
+        "description": "Collection of all products."
+    },
+    "/locations/{locationId}": {
+        "schema": { "$ref": "#/entities/Location" },
+        "description": "Collection of all warehouses and shelves."
+    },
+    "/stockItems/{stockItemId}": {
+        "schema": { "$ref": "#/entities/StockItem" },
+        "description": "Tracks the stock of products at various locations."
+    },
+    "/stockMovements/{movementId}": {
+        "schema": { "$ref": "#/entities/StockMovement" },
+        "description": "A log of all stock movements."
+    },
+    "/settings/{userId}": {
+      "schema": { "$ref": "#/entities/AppSettings" },
+      "description": "Stores application settings for each user."
+    },
+    "/purchaseOrders/{orderId}": {
+        "schema": { "$ref": "#/entities/PurchaseOrder" },
+        "description": "Collection of all purchase orders for a user."
+    }
+  }
+}

@@ -1,0 +1,14 @@
+# Settings to manage and configure a Firebase App Hosting backend.
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # Increase this value if you'd like to automatically spin up
+  # more instances in response to increased traffic.
+  maxInstances: 1
+  # Increase server-side timeout to allow for longer-running operations,
+  # like AI report generation.
+  timeoutSeconds: 120
+runtime_env:
+  secret_env:
+    - key: FIREBASE_SERVICE_ACCOUNT_KEY
+      secret: SERVICE_ACCOUNT_JSON

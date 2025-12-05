@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 151 62% 43%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
+
+    /* 🟢 Yeşil / mint paleti */
+    --primary: #22C55E;         /* ana butonlar, linkler */
+    --primary-strong: #16A34A;  /* hover / basılı */
+    --primary-soft: #ECFDF5;    /* chip, hover arkaplanı */
+    --accent-mint: #4ADE80;     /* ufak vurgular, ikon, badge vs */
+
+    /* 🔴 Turuncu / kırmızı / mavi durumlar */
+    --danger: #EF4444;
+    --danger-soft: #FEE2E2;
+
+    --warning: #F97316;
+    --warning-soft: #FFEDD5;
+
+    --info: #38BDF8;
+    --info-soft: #E0F2FE;
+
+    /* Özel Değişkenler */
+    --app-bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-subtle: #F9FAFB;
+    --border-subtle: #E5E7EB;
+    --border-strong: #D1D5DB;
+    --text: #111827;
+    --text-sub: #4B5563;
+  }
+
+  .dark, [data-theme="dark"] {
+    --background: 220 13% 10%;
+    --foreground: 210 20% 98%;
+    --card: 220 13% 12%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 13% 10%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 147 62% 57%;
+    --primary-foreground: 147 100% 10%;
+    --secondary: 210 10% 23%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 210 10% 23%;
+    --muted-foreground: 215 16% 77%;
+    --accent: 210 10% 23%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 210 10% 23%;
+    --input: 210 10% 23%;
+    --ring: 147 62% 57%;
+
+    /* Sadece vurguları fosforlulaştırıyoruz */
+    --primary: #22C55E;          /* aynı yeşil, koyu zeminde çok hoş durur */
+    --primary-strong: #16A34A;
+    --primary-soft: #052E16;     /* #22C55E'nin çok koyu, şeffaf gibi hali */
+    --accent-mint: #4ADE80;
+
+    --danger: #F97373;
+    --danger-soft: #7F1D1D;
+
+    --warning: #FDBA74;
+    --warning-soft: #7C2D12;
+
+    --info: #38BDF8;
+    --info-soft: #082F49;
+
+    /* Özel Değişkenler */
+    --app-bg: hsl(220 13% 10%);
+    --surface: hsl(220 13% 12%);
+    --surface-subtle: hsl(220 13% 15%);
+    --border-subtle: hsl(210 10% 23%);
+    --border-strong: hsl(210 10% 30%);
+    --text: hsl(var(--foreground));
+    --text-sub: hsl(215 16% 77%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+    .bg-app-bg { background-color: var(--app-bg); }
+    .bg-surface { background-color: var(--surface); }
+    .bg-surfaceMuted { background-color: var(--surface-muted); }
+    .text-text { color: var(--text); }
+    .text-subtext { color: var(--text-sub); }
+    .text-muted-foreground { color: var(--text-sub); }
+    .border-default { border-color: var(--border-strong); }
+    .bg-primary { background-color: var(--primary); }
+    .bg-primary-soft { background-color: var(--primary-soft); }
+    .text-primary-foreground { color: var(--primary-foreground); }
+}
+
+@media print {
+  .break-after-page {
+    page-break-after: always;
+  }
+}
