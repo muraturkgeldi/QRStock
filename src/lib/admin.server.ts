@@ -29,17 +29,17 @@ function loadServiceAccount(): any {
   try {
     if (!fs.existsSync(jsonPath)) {
         console.warn(`Uyarı: serviceAccount.json dosyası şurada bulunamadı: ${jsonPath}. Bazı sunucu özellikleri çalışmayabilir.`);
-        throw new Error('Firebase Admin SDK not initialized: no service account file found.');
+        return null; // Return null if file doesn't exist
     }
     const raw = fs.readFileSync(jsonPath, 'utf8');
     return JSON.parse(raw);
   } catch (e: any) {
     console.error('serviceAccount.json okunamadı:', jsonPath, e.message);
-    throw new Error('Firebase Admin SDK not initialized: no valid credentials found.');
+    return null; // Return null on any error
   }
 }
 
-function initAdminApp(): App {
+function initAdminApp(): App | null {
   if (adminApp) return adminApp;
 
   const existing = getApps();
@@ -50,6 +50,12 @@ function initAdminApp(): App {
   
   try {
       const serviceAccount = loadServiceAccount();
+      
+      // If serviceAccount is null (file not found or error reading), don't initialize
+      if (!serviceAccount) {
+        console.warn("Firebase Admin SDK başlatılamadı: serviceAccount.json bulunamadı veya geçersiz.");
+        return null;
+      }
 
       adminApp = initializeApp({
         credential: cert(serviceAccount),
@@ -58,27 +64,22 @@ function initAdminApp(): App {
       return adminApp;
   } catch(e: any) {
       console.error("Firebase Admin SDK başlatılamadı:", e.message);
-      // Hata durumunda null bir app döndürmek yerine hata fırlatmak
-      // sorunun kaynağını daha net gösterir.
-      throw new Error("Could not initialize Firebase Admin SDK. " + e.message);
+      return null;
   }
 }
 
 export function adminAuth() {
-  try {
-    return getAuth(initAdminApp());
-  } catch (e) {
-    console.error("adminAuth() çağrılırken hata oluştu. Admin SDK başlatılamamış olabilir.");
-    // Bu fonksiyonu çağıran yerin hatayı yakalaması için tekrar fırlat.
-    throw e;
+  const app = initAdminApp();
+  if (!app) {
+    throw new Error("Firebase Admin SDK not initialized. Check server logs for details.");
   }
+  return getAuth(app);
 }
 
 export function adminDb() {
-  try {
-    return getFirestore(initAdminApp());
-  } catch (e) {
-    console.error("adminDb() çağrılırken hata oluştu. Admin SDK başlatılamamış olabilir.");
-    throw e;
+  const app = initAdminApp();
+  if (!app) {
+    throw new Error("Firebase Admin SDK not initialized. Check server logs for details.");
   }
+  return getFirestore(app);
 }
