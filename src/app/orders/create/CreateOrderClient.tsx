@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { ShoppingCart, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { firestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export function CreateOrderClient() {
   const { user, loading: userLoading } = useUser();
@@ -94,8 +96,8 @@ export function CreateOrderClient() {
       });
       return;
     }
-
-    const payload: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[] & {quantity: number}[] = orderCandidates
+  
+    const payload = orderCandidates
       .map((p) => {
         const q = toQty(qtyById[p.id]);
         return {
@@ -114,57 +116,56 @@ export function CreateOrderClient() {
           Number.isFinite(it.quantity) &&
           it.quantity > 0,
       );
-
+  
     if (payload.length === 0) {
-      console.warn('NO_VALID_ITEMS_DEBUG', {
-        raw: { qtyById, noteById, products: orderCandidates },
-      });
       toast({
         variant: 'destructive',
         title: 'Geçerli Ürün Yok',
-        description: 'Adet girilen geçerli ürün yok. (Adet ≥ 1 olmalı)',
+        description: 'Adet girilen en az bir ürün olmalı (Adet ≥ 1).',
       });
       return;
     }
-
+  
     setIsSubmitting(true);
-    toast({ title: 'Sipariş Oluşturuluyor...', description: 'Lütfen bekleyin.' });
-
+    toast({
+      title: 'Sipariş Oluşturuluyor...',
+      description: 'Lütfen bekleyin.',
+    });
+  
     try {
-      const resp = await fetch('/api/orders/bulk-create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ uid: user.uid, items: payload }),
+      // Firestore: /purchaseOrders koleksiyonuna tek doküman
+      const ordersCol = collection(firestore, 'purchaseOrders');
+  
+      await addDoc(ordersCol, {
+        uid: user.uid,
+        orderNumber: `PO-${Date.now()}`,
+        orderDate: serverTimestamp(),
+        status: 'draft',
+        items: payload.map(it => ({
+            ...it,
+            receivedQuantity: 0,
+            remainingQuantity: it.quantity
+        })),
       });
-
-      const json = await resp.json();
-
-      if (!json.ok) {
-        console.error('PO_FAIL:', json.error);
-        toast({
-          variant: 'destructive',
-          title: 'Sipariş Oluşturulamadı',
-          description: json.error ?? 'Bilinmeyen bir hata oluştu.',
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
+  
       toast({
         title: 'Başarılı!',
-        description: 'Satın alma siparişi başarıyla oluşturuldu ve kaydedildi.',
+        description: 'Satın alma siparişi başarıyla oluşturuldu.',
       });
-      router.push(`/orders`);
+  
+      router.push('/orders');
     } catch (error: any) {
+      console.error('PO_FAIL_CLIENT:', error);
       toast({
         variant: 'destructive',
-        title: 'Ağ Hatası',
-        description: error.message || 'Sipariş oluşturulurken bir ağ hatası oluştu.',
+        title: 'Sipariş Oluşturulamadı',
+        description: error?.message || 'Bilinmeyen bir hata oluştu.',
       });
+    } finally {
       setIsSubmitting(false);
     }
   };
+  
 
   const validItemsToOrderCount = useMemo(
     () => Object.values(qtyById).filter((q) => toQty(q) > 0).length,
