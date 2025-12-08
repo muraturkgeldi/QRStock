@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/types';
 import { Pencil, X } from 'lucide-react';
 import { useDoc, useUser } from '@/firebase';
-import { useState, FormEvent, useEffect, use } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore } from '@/firebase/provider';
@@ -205,8 +205,8 @@ function ProductEditForm({ productId }: { productId: string }) {
   );
 }
 
-export default function Page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function Page({ params }: { params: { id: string } }) {
+  const { id } = params;
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
       <TopBar title="Ürünü Düzenle" />

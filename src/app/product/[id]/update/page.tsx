@@ -1,7 +1,7 @@
 
 "use client";
 
-import { use, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { notFound, useRouter } from 'next/navigation';
 import TopBar from '@/components/ui/TopBar';
 import Image from 'next/image';
@@ -18,10 +18,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 
 
-export default function UpdateStockPage({ params }: { params: Promise<{ id: string }> }) {
+export default function UpdateStockPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { id: productId } = use(params);
+  const { id: productId } = params;
   const { user, loading: userLoading } = useUser();
 
   const { data: product, loading: productLoading } = useDoc<Product>(`products/${productId}`);

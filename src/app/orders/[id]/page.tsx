@@ -1,7 +1,7 @@
 'use client';
 
 import { notFound } from 'next/navigation';
-import { use, useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -473,9 +473,9 @@ function OrderDetailContent({
 export default function OrderDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id: orderId } = use(params);
+  const { id: orderId } = params;
   const mode = useLayoutMode(1024);
   const pathname = usePathname();
 
@@ -607,5 +607,3 @@ export default function OrderDetailPage({
     </div>
   );
 }
-
-    

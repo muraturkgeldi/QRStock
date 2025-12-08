@@ -2,7 +2,7 @@
 'use client';
 
 import { notFound, useRouter } from 'next/navigation';
-import { use, useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDoc, useUser, useCollection } from '@/firebase';
 import type { PurchaseOrder, PurchaseOrderItem, Product } from '@/lib/types';
 import TopBar from '@/components/ui/TopBar';
@@ -122,10 +122,10 @@ function AddProductDialog({
 }
 
 
-export default function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditOrderPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const { toast } = useToast();
-    const { id: orderId } = use(params);
+    const { id: orderId } = params;
     const { user, loading: userLoading } = useUser();
 
     const { data: order, loading: orderLoading } = useDoc<PurchaseOrder>(`purchaseOrders/${orderId}`);

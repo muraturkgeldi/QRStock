@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { notFound, useRouter } from 'next/navigation';
 import TopBar from '@/components/ui/TopBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -16,10 +16,10 @@ import { Pencil } from 'lucide-react';
 import { useDoc, useUser } from '@/firebase';
 import Link from 'next/link';
 
-export default function EditLocationPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditLocationPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { id: locationId } = use(params);
+  const { id: locationId } = params;
   const { user, loading: userLoading } = useUser();
   const { data: location, loading: locationLoading } = useDoc<Location>(`locations/${locationId}`);
   const [isSubmitting, setIsSubmitting] = useState(false);
