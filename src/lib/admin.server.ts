@@ -3,83 +3,68 @@
 import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import fs from 'fs';
-import path from 'path';
 
 let adminApp: App | null = null;
 
 function loadServiceAccount(): any {
-  // 1) Önce ortam değişkenine bak (deploy vs için)
   const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (envKey) {
-    try {
-      const parsedKey = JSON.parse(envKey);
-      if (parsedKey.private_key) {
-        parsedKey.private_key = parsedKey.private_key.replace(/\\n/g, '\n');
-      }
-      return parsedKey;
-    } catch (e) {
-      console.error('FIREBASE_SERVICE_ACCOUNT_KEY JSON değil:', e);
-      throw new Error('Firebase Admin: invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON');
-    }
+  if (!envKey) {
+    console.warn('Firebase Admin SDK: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Server-side features requiring admin privileges will fail.');
+    return null;
   }
-
-  // 2) Lokal / Firebase Studio için: proje kökünden serviceAccount.json oku
-  const jsonPath = path.join(process.cwd(), 'serviceAccount.json');
+  
   try {
-    if (!fs.existsSync(jsonPath)) {
-        console.warn(`Uyarı: serviceAccount.json dosyası şurada bulunamadı: ${jsonPath}. Bazı sunucu özellikleri çalışmayabilir.`);
-        return null; // Return null if file doesn't exist
+    const parsedKey = JSON.parse(envKey);
+    // The key might be double-escaped in some environments.
+    if (parsedKey.private_key) {
+      parsedKey.private_key = parsedKey.private_key.replace(/\\n/g, '\n');
     }
-    const raw = fs.readFileSync(jsonPath, 'utf8');
-    return JSON.parse(raw);
-  } catch (e: any) {
-    console.error('serviceAccount.json okunamadı:', jsonPath, e.message);
-    return null; // Return null on any error
+    return parsedKey;
+  } catch (e) {
+    console.error('Firebase Admin: Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it is valid JSON.', e);
+    return null;
   }
 }
 
 function initAdminApp(): App | null {
   if (adminApp) return adminApp;
 
-  const existing = getApps();
-  if (existing.length > 0) {
-    adminApp = existing[0];
+  // Do not initialize if another app already exists.
+  if (getApps().length > 0) {
+    adminApp = getApps()[0];
     return adminApp;
   }
   
+  const serviceAccount = loadServiceAccount();
+  if (!serviceAccount) {
+    return null; // Don't initialize if service account is not available
+  }
+
   try {
-      const serviceAccount = loadServiceAccount();
-      
-      // If serviceAccount is null (file not found or error reading), don't initialize
-      if (!serviceAccount) {
-        console.warn("Firebase Admin SDK başlatılamadı: serviceAccount.json bulunamadı veya geçersiz.");
-        return null;
-      }
-
-      adminApp = initializeApp({
-        credential: cert(serviceAccount),
-      });
-
-      return adminApp;
+    adminApp = initializeApp({
+      credential: cert(serviceAccount),
+    });
+    return adminApp;
   } catch(e: any) {
-      console.error("Firebase Admin SDK başlatılamadı:", e.message);
-      return null;
+    console.error("Firebase Admin SDK initialization failed:", e.message);
+    return null;
   }
 }
 
+// These functions will now throw an error if the Admin SDK is not properly initialized.
+// This makes it clear where the configuration issue lies.
 export function adminAuth() {
   const app = initAdminApp();
   if (!app) {
-    throw new Error("Firebase Admin SDK not initialized. Check server logs for details.");
+    throw new Error("Firebase Admin SDK is not initialized. Check your FIREBASE_SERVICE_ACCOUNT_KEY environment variable.");
   }
   return getAuth(app);
 }
 
 export function adminDb() {
   const app = initAdminApp();
-  if (!app) {
-    throw new Error("Firebase Admin SDK not initialized. Check server logs for details.");
+   if (!app) {
+    throw new Error("Firebase Admin SDK is not initialized. Check your FIREBASE_SERVICE_ACCOUNT_KEY environment variable.");
   }
   return getFirestore(app);
 }

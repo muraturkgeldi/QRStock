@@ -2,15 +2,14 @@
 
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firestore.server';
-import { verifyAdminRole } from '@/lib/verifyFirebaseToken';
+import { verifyAdminRole, verifyFirebaseToken } from '@/lib/verifyFirebaseToken';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 
 // Basit “kullanıcı zorunlu” helper
 async function requireUser() {
-  const session = cookies().get('session')?.value;
-  const user = await verifyAdminRole(session);
+  const user = await verifyFirebaseToken();
   if (!user || !user.uid) {
     throw new Error('Bu işlemi yapmak için giriş yapmalısınız.');
   }
