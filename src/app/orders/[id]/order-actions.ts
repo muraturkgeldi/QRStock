@@ -1,3 +1,4 @@
+
 'use server';
 
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
@@ -65,7 +66,7 @@ export async function cancelOrderAction(orderId: string, reason?: string) {
 }
 
 
-// 3) Arşive alma (soft delete)
+// 3) Arşive alma (soft delete) - Artık sadece login yeterli
 export async function archiveOrderAction(orderId: string) {
   const user = await requireUser();
   const db = getServerDb();
@@ -85,12 +86,14 @@ export async function archiveOrderAction(orderId: string) {
 }
 
 
-// 4) Kalıcı silme (sadece admin)
+// 4) Kalıcı silme - Artık sadece login yeterli
 export async function hardDeleteOrderAction(orderId: string) {
-  const { isAdmin } = await verifyAdminRole(cookies().get('session')?.value);
-  if (!isAdmin) {
-    throw new Error('Siparişi kalıcı silmek için yönetici yetkisi gereklidir.');
-  }
+  const user = await requireUser();
+  
+  // Önceki admin kontrolü kaldırıldı.
+  // if (!isAdmin) {
+  //   throw new Error('Siparişi kalıcı silmek için yönetici yetkisi gereklidir.');
+  // }
 
   const db = getServerDb();
   await deleteDoc(doc(db, 'purchaseOrders', orderId));

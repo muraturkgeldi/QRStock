@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -152,15 +153,6 @@ export default function OrdersPage() {
     });
   }
 
-  const handleAction = async (action: () => Promise<any>, successMessage: string) => {
-    try {
-        await action();
-        toast({ title: successMessage });
-    } catch(e: any) {
-        toast({ variant: 'destructive', title: 'Hata', description: e.message });
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-dvh bg-app-bg">
@@ -253,12 +245,12 @@ export default function OrdersPage() {
                       </div>
                        <div className="flex items-center justify-end gap-2 pt-2 border-t mt-2">
                             <form action={archiveOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Arşivlendi' })}>
-                                <button type="submit" className="px-2 py-1 rounded text-[11px] border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
+                                <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-[11px] border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
                                     Arşivle
                                 </button>
                             </form>
                             <form action={hardDeleteOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Kalıcı Olarak Silindi' })}>
-                                <button type="submit" className="px-2 py-1 rounded text-[11px] border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
+                                <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-[11px] border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
                                     Sil
                                 </button>
                             </form>
@@ -317,12 +309,12 @@ export default function OrdersPage() {
                                     Detay
                                   </Button>
                                     <form action={archiveOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Arşivlendi' })}>
-                                        <button type="submit" className="px-2 py-1 rounded text-xs border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
+                                        <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-xs border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
                                             Arşivle
                                         </button>
                                     </form>
                                     <form action={hardDeleteOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Kalıcı Olarak Silindi' })}>
-                                        <button type="submit" className="px-2 py-1 rounded text-xs border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
+                                        <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-xs border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
                                             Sil
                                         </button>
                                     </form>
