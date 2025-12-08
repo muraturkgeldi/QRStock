@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useDoc, useUser, useCollection } from '@/firebase';
 import type { PurchaseOrder, Location, PurchaseOrderItem } from '@/lib/types';
-import { format, toDate } from 'date-fns';
+import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
   Package,
@@ -58,6 +58,40 @@ import Link from 'next/link';
 import TopBar from '@/components/ui/TopBar';
 import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePathname } from 'next/navigation';
+
+function normalizeOrderDate(raw: any): Date | null {
+  if (!raw) return null;
+
+  // Firestore Timestamp (server SDK / client SDK)
+  if (typeof raw.toDate === 'function') {
+    try {
+      const d = raw.toDate();
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  }
+  
+  // ISO String
+  if (typeof raw === 'string') {
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Unix ms (number) ise
+  if (typeof raw === 'number') {
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // zaten Date ise
+  if (raw instanceof Date) {
+    return isNaN(raw.getTime()) ? null : raw;
+  }
+
+  return null;
+}
+
 
 // 🔹 Status badge stilini üstte fonksiyon olarak tuttuk
 function getStatusBadgeClass(status: PurchaseOrder['status']) {
@@ -334,6 +368,8 @@ function OrderDetailContent({
     () => order.items.reduce((acc, item) => acc + item.quantity, 0),
     [order.items]
   );
+  
+  const safeOrderDate = normalizeOrderDate(order.orderDate);
 
   return (
     <>
@@ -362,9 +398,9 @@ function OrderDetailContent({
                 <Calendar className="w-4 h-4" /> Sipariş Tarihi
               </span>
               <span className="font-medium">
-                {format(toDate(order.orderDate), 'dd MMMM yyyy, HH:mm', {
-                  locale: tr,
-                })}
+                {safeOrderDate
+                  ? format(safeOrderDate, 'dd MMMM yyyy, HH:mm', { locale: tr })
+                  : '-'}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4">
