@@ -76,8 +76,10 @@ export type PurchaseOrder = {
     uid: string;
     orderNumber: string;
     orderDate: string;
-    status: 'draft' | 'ordered' | 'partially-received' | 'received';
+    status: 'draft' | 'ordered' | 'partially-received' | 'received' | 'cancelled';
     items: PurchaseOrderItem[];
+    internalNote?: string;
+    supplierName?: string;
 };
 
 export type UserProfile = {

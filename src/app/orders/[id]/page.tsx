@@ -1,6 +1,6 @@
 'use client';
 
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { useState, useMemo, Suspense } from 'react';
 import {
   Card,
@@ -32,6 +32,9 @@ import {
   ShoppingCart,
   Printer,
   Settings,
+  Save,
+  Trash2,
+  Ban,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -52,12 +55,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { receivePurchaseOrderItem } from '@/app/actions';
 import Link from 'next/link';
 import TopBar from '@/components/ui/TopBar';
 import { useLayoutMode } from '@/hooks/use-layout-mode';
 import { usePathname } from 'next/navigation';
+import {
+  updateOrderMetaAction,
+  cancelOrderAction,
+  deleteOrderAction,
+} from './order-actions';
+
 
 function normalizeOrderDate(raw: any): Date | null {
   if (!raw) return null;
@@ -104,17 +124,20 @@ function getStatusBadgeClass(status: PurchaseOrder['status']) {
       return 'bg-amber-100 text-amber-800 border-amber-300';
     case 'received':
       return 'bg-green-100 text-green-800 border-green-300';
+    case 'cancelled':
+      return 'bg-red-100 text-red-800 border-red-300 line-through';
     default:
       return 'bg-gray-100 text-gray-800 border-gray-300';
   }
 }
 
 function translateStatus(status: PurchaseOrder['status']) {
-  const map: Record<PurchaseOrder['status'], string> = {
+  const map: Record<string, string> = {
     draft: 'Taslak',
     ordered: 'Sipariş Verildi',
     'partially-received': 'Kısmen Teslim Alındı',
     received: 'Tamamı Teslim Alındı',
+    cancelled: 'İptal Edildi'
   };
   return map[status] || status;
 }
@@ -352,14 +375,18 @@ function ReceiveItemDialog({
   );
 }
 
+
 /* 🧱 Ortak içerik – hem mobilden hem masaüstünden bunu kullanacağız */
 function OrderDetailContent({
   order,
   locations,
 }: {
-  order: PurchaseOrder;
+  order: PurchaseOrder & { internalNote?: string };
   locations: Location[];
 }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isNoteSubmitting, setIsNoteSubmitting] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PurchaseOrderItem | null>(
     null
   );
@@ -370,6 +397,8 @@ function OrderDetailContent({
   );
   
   const safeOrderDate = normalizeOrderDate(order.orderDate);
+  const isEditable = order.status !== 'received' && order.status !== 'cancelled';
+  const isCancellable = order.status !== 'received' && order.status !== 'cancelled';
 
   return (
     <>
@@ -411,9 +440,17 @@ function OrderDetailContent({
                 {totalQuantity} adet ({order.items.length} çeşit)
               </span>
             </div>
+             {order.internalNote && (
+                <div className="flex items-start justify-between gap-4 pt-2 border-t">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" /> İç Not
+                    </span>
+                    <p className="font-medium text-right whitespace-pre-wrap">{order.internalNote}</p>
+                </div>
+            )}
           </CardContent>
-          {order.status !== 'received' && (
-            <CardFooter>
+           {isEditable && (
+            <CardFooter className="flex flex-col sm:flex-row gap-2">
               <Button asChild variant="outline" className="w-full">
                 <Link href={`/orders/${order.id}/edit`}>
                   <Pencil className="w-4 h-4 mr-2" /> Siparişi Düzenle
@@ -463,6 +500,7 @@ function OrderDetailContent({
                           size="sm"
                           variant="outline"
                           onClick={() => setSelectedItem(item)}
+                          disabled={!isEditable}
                         >
                           <Truck className="w-4 h-4 mr-2" /> Teslim Al
                         </Button>
@@ -488,6 +526,93 @@ function OrderDetailContent({
             </ul>
           </CardContent>
         </Card>
+
+        {isEditable && (
+          <Card>
+            <CardHeader>
+                <CardTitle>Sipariş Notu ve İşlemleri</CardTitle>
+                <CardDescription>Siparişe özel not ekleyin veya diğer işlemleri yapın.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form
+                action={async (formData) => {
+                  const note = formData.get('note');
+                  setIsNoteSubmitting(true);
+                  await updateOrderMetaAction(order.id, { note: typeof note === 'string' ? note : '' });
+                  toast({ title: 'Not Kaydedildi' });
+                  setIsNoteSubmitting(false);
+                }}
+                className="flex flex-col sm:flex-row gap-2 items-start"
+              >
+                <div className='flex-1 w-full'>
+                    <Label htmlFor="note" className="sr-only">İç Not</Label>
+                    <Input
+                        id="note"
+                        name="note"
+                        defaultValue={order.internalNote ?? ''}
+                        placeholder="Bu siparişe özel iç not..."
+                        className="text-sm"
+                        disabled={isNoteSubmitting}
+                    />
+                </div>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                  disabled={isNoteSubmitting}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isNoteSubmitting ? 'Kaydediliyor...' : 'Notu Kaydet'}
+                </Button>
+              </form>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-4 border-t">
+                  {isCancellable && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="w-full text-amber-600 border-amber-600/50 hover:bg-amber-100/50 hover:text-amber-700 dark:hover:bg-amber-900/20">
+                            <Ban className="mr-2 h-4 w-4" /> Siparişi İptal Et
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>Siparişi iptal etmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
+                        <AlertDialogDescription>Bu işlem geri alınamaz. Siparişin durumu "İptal Edildi" olarak değiştirilecektir.</AlertDialogDescription>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                          <AlertDialogAction onClick={async () => {
+                             await cancelOrderAction(order.id, 'Kullanıcı panelinden iptal edildi');
+                             toast({ title: "Sipariş İptal Edildi" });
+                          }}>Evet, İptal Et</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  
+                  <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full">
+                           <Trash2 className="mr-2 h-4 w-4" /> Siparişi Sil
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>Siparişi kalıcı olarak silmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
+                        <AlertDialogDescription>Bu işlem geri alınamaz. Bu siparişe ait tüm veriler sistemden silinecektir.</AlertDialogDescription>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                          <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={async () => {
+                             const res = await deleteOrderAction(order.id);
+                             if(res.ok){
+                                toast({ title: "Sipariş Silindi" });
+                                router.push('/orders');
+                             }
+                          }}>Evet, Kalıcı Olarak Sil</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                  </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {selectedItem && (
@@ -511,7 +636,7 @@ export default function OrderDetailPage({
 }: {
   params: { id: string };
 }) {
-  const { id: orderId } = params;
+  const orderId = params.id;
   const mode = useLayoutMode(1024);
   const pathname = usePathname();
 
@@ -554,7 +679,7 @@ export default function OrderDetailPage({
       <div className="flex flex-col bg-app-bg min-h-dvh">
         <TopBar title={`Sipariş #${order.orderNumber}`} />
         <main className="p-4">
-          <OrderDetailContent order={order} locations={safeLocations} />
+          <OrderDetailContent order={order as any} locations={safeLocations} />
         </main>
       </div>
     );
@@ -637,7 +762,7 @@ export default function OrderDetailPage({
       <div className="flex-1 flex flex-col lg:ml-60">
         <TopBar title={`Sipariş #${order.orderNumber}`} />
         <main className="flex-1 p-6">
-          <OrderDetailContent order={order} locations={safeLocations} />
+          <OrderDetailContent order={order as any} locations={safeLocations} />
         </main>
       </div>
     </div>
