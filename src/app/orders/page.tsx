@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -18,15 +19,15 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 import { useUser, useCollection } from '@/firebase';
-import type { PurchaseOrderItem, PurchaseOrder } from '@/lib/types';
+import type { PurchaseOrder } from '@/lib/types';
 import {
   ShoppingCart,
   Search,
   Package,
   CheckCircle2,
-  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { archiveOrderAction, hardDeleteOrderAction } from './[id]/order-actions';
 
 
 function formatDate(ts: any | undefined): string {
@@ -225,13 +226,11 @@ export default function OrdersPage() {
                   const dateLabel = formatDate(order.orderDate);
 
                   return (
-                    <button
+                    <Card
                       key={order.id}
-                      type="button"
-                      onClick={() => router.push(`/orders/${order.id}`)}
-                      className="w-full text-left border rounded-lg bg-card hover:bg-accent/50 transition-colors p-3 space-y-2"
+                      className="text-left border bg-card hover:bg-accent/50 transition-colors p-3 space-y-2"
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2" onClick={() => router.push(`/orders/${order.id}`)}>
                         <div className="flex items-center gap-2">
                           <Package className="w-4 h-4 text-muted-foreground" />
                           <span className="font-semibold text-sm">
@@ -240,11 +239,23 @@ export default function OrdersPage() {
                         </div>
                         <StatusBadge status={order.status} />
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground" onClick={() => router.push(`/orders/${order.id}`)}>
                         <span>{dateLabel}</span>
                         <span>{itemCount} kalem ürün</span>
                       </div>
-                    </button>
+                       <div className="flex items-center justify-end gap-2 pt-2 border-t mt-2">
+                          <form action={async () => { 'use server'; await archiveOrderAction(order.id); toast({title: "Sipariş Arşivlendi"}) }}>
+                            <button type="submit" className="px-2 py-1 rounded text-[11px] border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
+                              Arşivle
+                            </button>
+                          </form>
+                          <form action={async () => { 'use server'; await hardDeleteOrderAction(order.id); toast({title: "Sipariş Kalıcı Olarak Silindi"}) }}>
+                            <button type="submit" className="px-2 py-1 rounded text-[11px] border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
+                              Sil
+                            </button>
+                          </form>
+                        </div>
+                    </Card>
                   );
                 })
               )}
@@ -292,16 +303,22 @@ export default function OrdersPage() {
                               {itemCount}
                             </td>
                             <td className="px-4 py-2 align-middle text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  router.push(`/orders/${order.id}`)
-                                }
-                              >
-                                <CheckCircle2 className="w-4 h-4 mr-1" />
-                                Detay
-                              </Button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => router.push(`/orders/${order.id}`)}>
+                                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                                    Detay
+                                  </Button>
+                                  <form action={async () => { 'use server'; await archiveOrderAction(order.id); toast({title: "Sipariş Arşivlendi"}) }}>
+                                    <button type="submit" className="px-2 py-1 rounded text-xs border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
+                                      Arşivle
+                                    </button>
+                                  </form>
+                                  <form action={async () => { 'use server'; await hardDeleteOrderAction(order.id); toast({title: "Sipariş Kalıcı Olarak Silindi"}) }}>
+                                     <button type="submit" className="px-2 py-1 rounded text-xs border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
+                                      Sil
+                                    </button>
+                                  </form>
+                                </div>
                             </td>
                           </tr>
                         );

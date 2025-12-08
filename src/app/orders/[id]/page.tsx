@@ -1,3 +1,4 @@
+
 'use client';
 
 import { notFound, useRouter } from 'next/navigation';
@@ -582,12 +583,12 @@ function OrderDetailContent({
           <CardHeader>
              <CardTitle>Diğer İşlemler</CardTitle>
           </CardHeader>
-           <CardContent className="space-y-2">
+           <CardContent className="flex flex-wrap gap-2">
             {isActionable && (
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="w-full text-amber-600 border-amber-600/50 hover:bg-amber-100/50 hover:text-amber-700 dark:hover:bg-amber-900/20">
-                        <Ban className="mr-2 h-4 w-4" /> Siparişi İptal Et
+                    <Button variant="outline" size="sm" className="text-amber-600 border-amber-600/50 hover:bg-amber-100/50 hover:text-amber-700 dark:hover:bg-amber-900/20">
+                        <Ban className="mr-2 h-4 w-4" /> İptal Et
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -607,8 +608,8 @@ function OrderDetailContent({
             {isArchivable && (
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="w-full text-neutral-600 border-neutral-600/50 hover:bg-neutral-100/50 hover:text-neutral-700 dark:hover:bg-neutral-900/20">
-                        <Archive className="mr-2 h-4 w-4" /> Siparişi Arşive Taşı
+                    <Button variant="outline" size="sm" className="text-neutral-600 border-neutral-600/50 hover:bg-neutral-100/50 hover:text-neutral-700 dark:hover:bg-neutral-900/20">
+                        <Archive className="mr-2 h-4 w-4" /> Arşivle
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -629,8 +630,8 @@ function OrderDetailContent({
             {isAdmin && (
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full">
-                        <Trash2 className="mr-2 h-4 w-4" /> Siparişi Kalıcı Sil (Admin)
+                     <Button variant="destructive" size="sm">
+                        <Trash2 className="mr-2 h-4 w-4" /> Kalıcı Sil
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
