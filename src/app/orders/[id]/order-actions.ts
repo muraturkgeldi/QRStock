@@ -91,9 +91,6 @@ export async function hardDeleteOrderAction(orderId: string) {
   const user = await requireUser();
   
   // Önceki admin kontrolü kaldırıldı.
-  // if (!isAdmin) {
-  //   throw new Error('Siparişi kalıcı silmek için yönetici yetkisi gereklidir.');
-  // }
 
   const db = getServerDb();
   await deleteDoc(doc(db, 'purchaseOrders', orderId));
