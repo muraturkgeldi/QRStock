@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 import { useUser, useCollection } from '@/firebase';
-import type { PurchaseOrderItem } from '@/lib/types';
+import type { PurchaseOrderItem, PurchaseOrder } from '@/lib/types';
 import {
   ShoppingCart,
   Search,
@@ -26,17 +26,8 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially-received' | 'received';
-
-type PurchaseOrder = {
-  id: string;
-  uid: string;
-  orderNumber: string;
-  orderDate?: any; // Firestore Timestamp
-  status: PurchaseOrderStatus;
-  items: PurchaseOrderItem[];
-};
 
 function formatDate(ts: any | undefined): string {
   if (!ts) return '-';
@@ -58,7 +49,7 @@ function formatDate(ts: any | undefined): string {
   }
 }
 
-function StatusBadge({ status }: { status: PurchaseOrderStatus }) {
+function StatusBadge({ status }: { status: PurchaseOrder['status'] }) {
   let label = '';
   let className = '';
 
@@ -83,10 +74,18 @@ function StatusBadge({ status }: { status: PurchaseOrderStatus }) {
       className =
         'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border-emerald-200 dark:border-emerald-700';
       break;
+    case 'cancelled':
+        label = 'İptal Edildi';
+        className = 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200 border-red-200 dark:border-red-700';
+        break;
+    case 'archived':
+        label = 'Arşivlendi';
+        className = 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700';
+        break;
   }
 
   return (
-    <Badge variant="outline" className={className}>
+    <Badge variant="outline" className={cn(className)}>
       {label}
     </Badge>
   );
@@ -110,7 +109,9 @@ export default function OrdersPage() {
   const filtered = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
-    const list = [...orders].sort((a, b) => {
+    const list = [...orders]
+      .filter(o => o.status !== 'archived') // Arşivlenmişleri gösterme
+      .sort((a, b) => {
       const da =
         a.orderDate && typeof a.orderDate.toDate === 'function'
           ? a.orderDate.toDate()

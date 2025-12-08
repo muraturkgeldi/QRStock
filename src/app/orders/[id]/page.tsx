@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useDoc, useUser, useCollection } from '@/firebase';
-import type { PurchaseOrder, Location, PurchaseOrderItem } from '@/lib/types';
+import type { PurchaseOrder, Location, PurchaseOrderItem, AppUser } from '@/lib/types';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -35,6 +35,7 @@ import {
   Save,
   Trash2,
   Ban,
+  Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -75,7 +76,8 @@ import { usePathname } from 'next/navigation';
 import {
   updateOrderMetaAction,
   cancelOrderAction,
-  deleteOrderAction,
+  archiveOrderAction,
+  hardDeleteOrderAction,
 } from './order-actions';
 
 
@@ -126,6 +128,8 @@ function getStatusBadgeClass(status: PurchaseOrder['status']) {
       return 'bg-green-100 text-green-800 border-green-300';
     case 'cancelled':
       return 'bg-red-100 text-red-800 border-red-300 line-through';
+    case 'archived':
+      return 'bg-neutral-100 text-neutral-800 border-neutral-300';
     default:
       return 'bg-gray-100 text-gray-800 border-gray-300';
   }
@@ -137,7 +141,8 @@ function translateStatus(status: PurchaseOrder['status']) {
     ordered: 'Sipariş Verildi',
     'partially-received': 'Kısmen Teslim Alındı',
     received: 'Tamamı Teslim Alındı',
-    cancelled: 'İptal Edildi'
+    cancelled: 'İptal Edildi',
+    archived: 'Arşivlendi'
   };
   return map[status] || status;
 }
@@ -380,9 +385,11 @@ function ReceiveItemDialog({
 function OrderDetailContent({
   order,
   locations,
+  currentUser
 }: {
   order: PurchaseOrder & { internalNote?: string };
   locations: Location[];
+  currentUser: AppUser | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -397,8 +404,10 @@ function OrderDetailContent({
   );
   
   const safeOrderDate = normalizeOrderDate(order.orderDate);
-  const isEditable = order.status !== 'received' && order.status !== 'cancelled';
-  const isCancellable = order.status !== 'received' && order.status !== 'cancelled';
+  const isActionable = order.status !== 'received' && order.status !== 'cancelled' && order.status !== 'archived';
+  const isArchivable = order.status !== 'archived';
+  const isAdmin = currentUser?.role === 'admin';
+
 
   return (
     <>
@@ -449,7 +458,7 @@ function OrderDetailContent({
                 </div>
             )}
           </CardContent>
-           {isEditable && (
+           {isActionable && (
             <CardFooter className="flex flex-col sm:flex-row gap-2">
               <Button asChild variant="outline" className="w-full">
                 <Link href={`/orders/${order.id}/edit`}>
@@ -500,7 +509,7 @@ function OrderDetailContent({
                           size="sm"
                           variant="outline"
                           onClick={() => setSelectedItem(item)}
-                          disabled={!isEditable}
+                          disabled={!isActionable}
                         >
                           <Truck className="w-4 h-4 mr-2" /> Teslim Al
                         </Button>
@@ -527,13 +536,13 @@ function OrderDetailContent({
           </CardContent>
         </Card>
 
-        {isEditable && (
+        {isActionable && (
           <Card>
             <CardHeader>
-                <CardTitle>Sipariş Notu ve İşlemleri</CardTitle>
-                <CardDescription>Siparişe özel not ekleyin veya diğer işlemleri yapın.</CardDescription>
+                <CardTitle>Sipariş Notu</CardTitle>
+                <CardDescription>Siparişe özel not ekleyin.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <form
                 action={async (formData) => {
                   const note = formData.get('note');
@@ -565,54 +574,83 @@ function OrderDetailContent({
                   {isNoteSubmitting ? 'Kaydediliyor...' : 'Notu Kaydet'}
                 </Button>
               </form>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-4 border-t">
-                  {isCancellable && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="w-full text-amber-600 border-amber-600/50 hover:bg-amber-100/50 hover:text-amber-700 dark:hover:bg-amber-900/20">
-                            <Ban className="mr-2 h-4 w-4" /> Siparişi İptal Et
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Siparişi iptal etmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
-                        <AlertDialogDescription>Bu işlem geri alınamaz. Siparişin durumu "İptal Edildi" olarak değiştirilecektir.</AlertDialogDescription>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-                          <AlertDialogAction onClick={async () => {
-                             await cancelOrderAction(order.id, 'Kullanıcı panelinden iptal edildi');
-                             toast({ title: "Sipariş İptal Edildi" });
-                          }}>Evet, İptal Et</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                  
-                  <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="w-full">
-                           <Trash2 className="mr-2 h-4 w-4" /> Siparişi Sil
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Siparişi kalıcı olarak silmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
-                        <AlertDialogDescription>Bu işlem geri alınamaz. Bu siparişe ait tüm veriler sistemden silinecektir.</AlertDialogDescription>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-                          <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={async () => {
-                             const res = await deleteOrderAction(order.id);
-                             if(res.ok){
-                                toast({ title: "Sipariş Silindi" });
-                                router.push('/orders');
-                             }
-                          }}>Evet, Kalıcı Olarak Sil</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                  </AlertDialog>
-              </div>
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader>
+             <CardTitle>Diğer İşlemler</CardTitle>
+          </CardHeader>
+           <CardContent className="space-y-2">
+            {isActionable && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full text-amber-600 border-amber-600/50 hover:bg-amber-100/50 hover:text-amber-700 dark:hover:bg-amber-900/20">
+                        <Ban className="mr-2 h-4 w-4" /> Siparişi İptal Et
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Siparişi iptal etmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
+                    <AlertDialogDescription>Bu işlem geri alınamaz. Siparişin durumu "İptal Edildi" olarak değiştirilecektir.</AlertDialogDescription>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => {
+                            await cancelOrderAction(order.id, 'Kullanıcı panelinden iptal edildi');
+                            toast({ title: "Sipariş İptal Edildi" });
+                        }}>Evet, İptal Et</AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
+
+            {isArchivable && (
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full text-neutral-600 border-neutral-600/50 hover:bg-neutral-100/50 hover:text-neutral-700 dark:hover:bg-neutral-900/20">
+                        <Archive className="mr-2 h-4 w-4" /> Siparişi Arşive Taşı
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Siparişi arşivlemek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
+                    <AlertDialogDescription>Sipariş listeden kaldırılacak ancak silinmeyecektir. Bu işlem geri alınamaz.</AlertDialogDescription>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => {
+                            await archiveOrderAction(order.id);
+                            toast({ title: "Sipariş Arşivlendi" });
+                            router.push('/orders');
+                        }}>Evet, Arşivle</AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
+
+            {isAdmin && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full">
+                        <Trash2 className="mr-2 h-4 w-4" /> Siparişi Kalıcı Sil (Admin)
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Siparişi kalıcı olarak silmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
+                    <AlertDialogDescription>Bu işlem geri alınamaz. Bu siparişe ait tüm veriler sistemden kalıcı olarak silinecektir.</AlertDialogDescription>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={async () => {
+                            const res = await hardDeleteOrderAction(order.id);
+                            if(res.ok){
+                            toast({ title: "Sipariş Silindi" });
+                            router.push('/orders');
+                            }
+                        }}>Evet, Kalıcı Olarak Sil</AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
+           </CardContent>
+        </Card>
       </div>
 
       {selectedItem && (
@@ -679,7 +717,7 @@ export default function OrderDetailPage({
       <div className="flex flex-col bg-app-bg min-h-dvh">
         <TopBar title={`Sipariş #${order.orderNumber}`} />
         <main className="p-4">
-          <OrderDetailContent order={order as any} locations={safeLocations} />
+          <OrderDetailContent order={order as any} locations={safeLocations} currentUser={user} />
         </main>
       </div>
     );
@@ -762,7 +800,7 @@ export default function OrderDetailPage({
       <div className="flex-1 flex flex-col lg:ml-60">
         <TopBar title={`Sipariş #${order.orderNumber}`} />
         <main className="flex-1 p-6">
-          <OrderDetailContent order={order as any} locations={safeLocations} />
+          <OrderDetailContent order={order as any} locations={safeLocations} currentUser={user} />
         </main>
       </div>
     </div>

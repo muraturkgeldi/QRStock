@@ -3,8 +3,8 @@
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firestore.server';
 import { verifyAdminRole, verifyFirebaseToken } from '@/lib/verifyFirebaseToken';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 
 
 // Basit “kullanıcı zorunlu” helper
@@ -15,6 +15,7 @@ async function requireUser() {
   }
   return user;
 }
+
 
 // 1) Sipariş üst bilgisini güncelle (not vs.)
 export async function updateOrderMetaAction(
@@ -44,7 +45,7 @@ export async function updateOrderMetaAction(
   return { ok: true };
 }
 
-// 2) Siparişi iptal et
+// 2) Siparişi iptal et (status: 'cancelled')
 export async function cancelOrderAction(orderId: string, reason?: string) {
   const user = await requireUser();
   const db = getServerDb();
@@ -55,21 +56,44 @@ export async function cancelOrderAction(orderId: string, reason?: string) {
     cancelledAt: serverTimestamp(),
     cancelledByUid: user.uid,
     cancelReason: (reason ?? '').trim(),
+    updatedAt: serverTimestamp(),
+    updatedByUid: user.uid,
   });
   revalidatePath(`/orders/${orderId}`);
   revalidatePath('/orders');
   return { ok: true };
 }
 
-// 3) Siparişi tamamen sil
-export async function deleteOrderAction(orderId: string) {
+
+// 3) Arşive alma (soft delete)
+export async function archiveOrderAction(orderId: string) {
   const user = await requireUser();
   const db = getServerDb();
   const ref = doc(db, 'purchaseOrders', orderId);
 
-  // İstersen burada önce doc'u okuyup status !== 'received' ise sil,
-  // yoksa hata fırlat (tamamlanan sipariş silinmesin).
-  await deleteDoc(ref);
+  await updateDoc(ref, {
+    status: 'archived',
+    archivedAt: serverTimestamp(),
+    archivedByUid: user.uid,
+    updatedAt: serverTimestamp(),
+    updatedByUid: user.uid,
+  });
+  
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath('/orders');
+  return { ok: true };
+}
+
+
+// 4) Kalıcı silme (sadece admin)
+export async function hardDeleteOrderAction(orderId: string) {
+  const { isAdmin } = await verifyAdminRole(cookies().get('session')?.value);
+  if (!isAdmin) {
+    throw new Error('Siparişi kalıcı silmek için yönetici yetkisi gereklidir.');
+  }
+
+  const db = getServerDb();
+  await deleteDoc(doc(db, 'purchaseOrders', orderId));
   revalidatePath('/orders');
   return { ok: true, deleted: true };
 }

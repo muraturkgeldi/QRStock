@@ -75,12 +75,21 @@ export type PurchaseOrder = {
     id: string;
     uid: string;
     orderNumber: string;
-    orderDate: string;
-    status: 'draft' | 'ordered' | 'partially-received' | 'received' | 'cancelled';
+    orderDate: any; // Allow flexible date types
+    status: 'draft' | 'ordered' | 'partially-received' | 'received' | 'cancelled' | 'archived';
     items: PurchaseOrderItem[];
     internalNote?: string;
     supplierName?: string;
+    // Audit fields
+    createdAt?: any;
+    updatedAt?: any;
+    cancelledAt?: any;
+    archivedAt?: any;
+    updatedByUid?: string;
+    cancelledByUid?: string;
+    archivedByUid?: string;
 };
+
 
 export type UserProfile = {
   id: string;
