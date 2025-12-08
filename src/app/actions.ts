@@ -17,7 +17,6 @@ import {
     updateLocationNameInDB,
     deleteLocationAndChildren,
     createPurchaseOrderInDB,
-    receivePurchaseOrderItemInDB,
     updatePurchaseOrderInDB,
     updateUserDisplayNameInDB
 } from '@/lib/server-actions';
@@ -28,10 +27,11 @@ import nodemailer from 'nodemailer';
 import type { PurchaseOrderItem, UserProfile } from '@/lib/types';
 import { cookies } from 'next/headers';
 import * as jose from 'jose';
-import { auth, firestore } from '@/firebase';
+import { auth } from '@/firebase'; // Keep client auth for user creation
 import { adminAuth, adminDb } from '@/lib/admin.server';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, runTransaction, getDoc, collectionGroup, writeBatch, where } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firestore.server';
 
 
 const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET || 'dev-secret');
@@ -544,6 +544,7 @@ export async function updatePurchaseOrder(orderId: string, items: PurchaseOrderI
 
 
 export async function receivePurchaseOrderItem(formData: FormData) {
+    const db = getServerDb();
     const uid = await getUidFromSession();
 
     const orderId = formData.get('orderId') as string;
@@ -554,8 +555,72 @@ export async function receivePurchaseOrderItem(formData: FormData) {
     if (!orderId || !productId || !receivedQuantity || !locationId) {
         throw new Error("Eksik bilgi: Sipariş ID, Ürün ID, Miktar ve Lokasyon zorunludur.");
     }
+    
+    await runTransaction(db, async (transaction) => {
+        const orderRef = doc(db, "purchaseOrders", orderId);
+        const orderSnap = await transaction.get(orderRef);
 
-    await receivePurchaseOrderItemInDB(uid, orderId, productId, receivedQuantity, locationId);
+        if (!orderSnap.exists() || orderSnap.data().uid !== uid) {
+            throw new Error("Sipariş bulunamadı veya bu işlem için yetkiniz yok.");
+        }
+
+        const order: any = orderSnap.data();
+        const itemIndex = order.items.findIndex((item:any) => item.productId === productId);
+
+        if (itemIndex === -1) {
+            throw new Error("Sipariş içinde ürün bulunamadı.");
+        }
+
+        const item = order.items[itemIndex];
+        
+        if (receivedQuantity > item.remainingQuantity) {
+            throw new Error(`Teslim alınan miktar (${receivedQuantity}), kalan miktardan (${item.remainingQuantity}) fazla olamaz.`);
+        }
+
+        const newReceived = item.receivedQuantity + receivedQuantity;
+        const newRemaining = item.quantity - newReceived;
+        
+        order.items[itemIndex].receivedQuantity = newReceived;
+        order.items[itemIndex].remainingQuantity = newRemaining;
+
+        const allItemsReceived = order.items.every((i:any) => i.remainingQuantity <= 0);
+        const someItemsReceived = order.items.some((i:any) => i.receivedQuantity > 0);
+
+        if (allItemsReceived) {
+            order.status = 'received';
+        } else if (someItemsReceived) {
+            order.status = 'partially-received';
+        } else {
+            order.status = 'ordered';
+        }
+
+        transaction.update(orderRef, { items: order.items, status: order.status });
+        
+        const stockItemsRef = collection(db, 'stockItems');
+        const q = query(stockItemsRef, where('productId', '==', productId), where('locationId', '==', locationId), where('uid', '==', uid));
+        const stockSnapshot = await getDocs(q);
+
+        if (stockSnapshot.empty) {
+            const newStockItemRef = doc(collection(db, 'stockItems'));
+            transaction.set(newStockItemRef, { productId, locationId, quantity: receivedQuantity, uid });
+        } else {
+            const stockItemDoc = stockSnapshot.docs[0];
+            const newQuantity = stockItemDoc.data().quantity + receivedQuantity;
+            transaction.update(stockItemDoc.ref, { quantity: newQuantity });
+        }
+        
+        const newMovementRef = doc(collection(db, 'stockMovements'));
+        transaction.set(newMovementRef, {
+            productId,
+            locationId,
+            type: 'in',
+            quantity: receivedQuantity,
+            date: serverTimestamp(),
+            uid,
+            userId: uid,
+            description: `Sipariş #${order.orderNumber} teslimatı`
+        });
+    });
 
     revalidatePath(`/orders/${orderId}`);
     revalidatePath('/orders');
@@ -580,9 +645,10 @@ export async function registerUserWithRole({
   // 1) Create user in Firebase Auth
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const uid = userCredential.user.uid;
+  const db = getServerDb();
 
   // 2) Check if any user exists in Firestore
-  const usersRef = collection(firestore, 'users');
+  const usersRef = collection(db, 'users');
   let role: 'admin' | 'user' = 'user';
   
   // This check must be done with admin privileges if security rules are restrictive
@@ -630,9 +696,9 @@ export async function updateUserDisplayName(userId: string, displayName: string)
         throw new Error("Kullanıcı ID ve Ad Soyad zorunludur.");
     }
     const uid = await getUidFromSession();
-    if(uid !== userId) {
-        const { isAdmin } = await verifyAdminRole();
-        if(!isAdmin) throw new Error("UNAUTHORIZED");
+    const { isAdmin } = await verifyAdminRole(cookies().get('session')?.value);
+    if(uid !== userId && !isAdmin) {
+       throw new Error("UNAUTHORIZED");
     }
 
     try {
@@ -643,6 +709,26 @@ export async function updateUserDisplayName(userId: string, displayName: string)
         throw error;
     }
 }
+async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin: boolean, uid: string | null }> {
+    if (!sessionCookie) {
+        return { isAdmin: false, uid: null };
+    }
+    try {
+        const uid = await getUidFromSession(); // Uses the same logic to decode session
+        const db = adminDb();
+        if (!db) return { isAdmin: false, uid: uid };
+
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists && userDoc.data()?.role === 'admin') {
+            return { isAdmin: true, uid };
+        }
+        return { isAdmin: false, uid };
+    } catch (err) {
+        console.error('verifyAdminRole error', err);
+        return { isAdmin: false, uid: null };
+    }
+}
+    
 
     
 
