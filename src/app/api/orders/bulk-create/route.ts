@@ -1,13 +1,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPurchaseOrderInDB } from '@/lib/server-actions';
+import { adminAuth } from '@/lib/admin.server';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const uid = String(body.uid || '');
-    const items = Array.isArray(body.items) ? body.items : [];
-
+    const { uid, items, userInfo } = body;
+    
     if (!uid) {
       return NextResponse.json(
         { ok: false, error: 'UID_MISSING' },
@@ -15,18 +15,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (items.length === 0) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { ok: false, error: 'NO_ITEMS' },
         { status: 400 }
       );
     }
+    
+    const userRecord = await adminAuth().getUser(uid);
 
-    // server-actions.ts içindeki fonksiyonu çağırıyoruz
     const result = await createPurchaseOrderInDB({
       uid,
       items,
       status: 'draft',
+      userInfo: {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName
+      }
     });
 
     return NextResponse.json({ ok: true, data: result });

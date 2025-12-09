@@ -12,8 +12,7 @@ import { Label } from '@/components/ui/label';
 import { ShoppingCart, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { firestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { createPurchaseOrder } from '@/app/actions';
 
 export function CreateOrderClient() {
   const { user, loading: userLoading } = useUser();
@@ -97,7 +96,7 @@ export function CreateOrderClient() {
       return;
     }
   
-    const payload = orderCandidates
+    const payloadItems = orderCandidates
       .map((p) => {
         const q = toQty(qtyById[p.id]);
         return {
@@ -117,7 +116,7 @@ export function CreateOrderClient() {
           it.quantity > 0,
       );
   
-    if (payload.length === 0) {
+    if (payloadItems.length === 0) {
       toast({
         variant: 'destructive',
         title: 'Geçerli Ürün Yok',
@@ -133,34 +132,16 @@ export function CreateOrderClient() {
     });
   
     try {
-      // Firestore: /purchaseOrders koleksiyonuna tek doküman
-      const ordersCol = collection(firestore, 'purchaseOrders');
-      const now = serverTimestamp();
-  
-      await addDoc(ordersCol, {
+      const result = await createPurchaseOrder(payloadItems, {
         uid: user.uid,
-        orderNumber: `PO-${Date.now()}`,
-        orderDate: now,
-        status: 'draft',
-        items: payload.map(it => ({
-            ...it,
-            receivedQuantity: 0,
-            remainingQuantity: it.quantity
-        })),
-        createdAt: now,
-        updatedAt: now,
-        createdBy: {
-            uid: user.uid,
-            email: user.email ?? undefined,
-            displayName: user.displayName ?? user.email ?? undefined,
-        },
-        createdByUid: user.uid,
-        createdByEmail: user.email ?? null,
-        createdByName: user.displayName ?? null,
-        requesterDepartment: null, // Şimdilik boş
-        requesterRole: 'purchaser', // Şimdilik herkes purchaser
+        email: user.email ?? undefined,
+        displayName: user.displayName ?? user.email ?? undefined
       });
   
+       if (!result.ok) {
+        throw new Error(result.error || 'Sipariş oluşturulamadı.');
+      }
+
       toast({
         title: 'Başarılı!',
         description: 'Satın alma siparişi başarıyla oluşturuldu.',

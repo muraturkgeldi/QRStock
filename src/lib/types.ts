@@ -89,14 +89,17 @@ export type PurchaseOrder = {
     cancelledByUid?: string;
     archivedByUid?: string;
     // Ownership and Role fields
-    createdBy?: {
+    createdBy: {
       uid: string;
       email?: string;
       displayName?: string;
     };
     createdByUid: string;
-    createdByEmail?: string | null;
-    createdByName?: string | null;
+    requestedBy?: {
+        uid?: string;
+        name: string;
+        department?: string;
+    };
     requesterDepartment?: string | null;
     requesterRole?: string | null;
 };
@@ -110,3 +113,38 @@ export type UserProfile = {
   photoURL?: string;
   role?: 'admin' | 'user';
 }
+
+export type PurchaseOrderEventType =
+  | 'created'
+  | 'status-changed'
+  | 'item-received'
+  | 'item-partially-received'
+  | 'item-cancelled'
+  | 'order-cancelled'
+  | 'note-added';
+
+export type PurchaseOrderEvent = {
+  id: string;
+  orderId: string;
+
+  type: PurchaseOrderEventType;
+
+  at: Date | any; // Firestore Timestamp de olabilir
+  actor: {
+    uid: string;
+    email?: string;
+    displayName?: string;
+    role?: 'admin' | 'purchaser' | 'warehouse' | 'manager' | 'viewer'; // ileride kullanırız
+  };
+
+  // Ne oldu?
+  fromStatus?: PurchaseOrder['status'];
+  toStatus?: PurchaseOrder['status'];
+
+  itemId?: string;      // hangi kalem?
+  productSku?: string;
+  quantity?: number;    // +10 alındı, -5 iptal edildi gibi
+
+  reason?: string;      // iptal sebebi vs.
+  note?: string;        // serbest yorum
+};
