@@ -149,6 +149,11 @@ export function CreateOrderClient() {
         })),
         createdAt: now,
         updatedAt: now,
+        createdBy: {
+            uid: user.uid,
+            email: user.email ?? undefined,
+            displayName: user.displayName ?? user.email ?? undefined,
+        },
         createdByUid: user.uid,
         createdByEmail: user.email ?? null,
         createdByName: user.displayName ?? null,

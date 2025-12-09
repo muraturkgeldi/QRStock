@@ -89,6 +89,11 @@ export type PurchaseOrder = {
     cancelledByUid?: string;
     archivedByUid?: string;
     // Ownership and Role fields
+    createdBy?: {
+      uid: string;
+      email?: string;
+      displayName?: string;
+    };
     createdByUid: string;
     createdByEmail?: string | null;
     createdByName?: string | null;

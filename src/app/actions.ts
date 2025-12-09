@@ -495,9 +495,12 @@ export async function fixSkusFromExcel(formData: FormData) {
 
 // Purchase Order Actions
 export async function createPurchaseOrder(
-  items: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[]
+  items: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[],
+  userInfo: { uid: string, email?: string, displayName?: string }
 ){
   const uid = await getUidFromSession();
+  if (uid !== userInfo.uid) throw new Error('UNAUTHORIZED');
+
   try {
     if (!Array.isArray(items)) return { ok:false, error:'Ürün listesi yok' };
 
@@ -512,7 +515,7 @@ export async function createPurchaseOrder(
 
     if (clean.length===0) return { ok:false, error:'Siparişte adet > 0 olan ürün yok' };
 
-    const result = await createPurchaseOrderInDB({ uid, items: clean, status:'draft' });
+    const result = await createPurchaseOrderInDB({ uid, userInfo, items: clean, status:'draft' });
     revalidatePath('/orders'); revalidatePath('/');
     return { ok:true, data: result };
   } catch (e:any) {

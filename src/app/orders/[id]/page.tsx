@@ -37,6 +37,7 @@ import {
   Trash2,
   Ban,
   Archive,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -80,6 +81,7 @@ import {
   archiveOrderAction,
   hardDeleteOrderAction,
 } from './order-actions';
+import { exportPurchaseOrderPdf } from '@/lib/order-print';
 
 
 function normalizeOrderDate(raw: any): Date | null {
@@ -424,6 +426,14 @@ function OrderDetailContent({
                 {translateStatus(order.status)}
               </Badge>
             </div>
+             <div className="mt-1 text-sm text-muted-foreground space-x-1">
+                <span>Oluşturan:</span>
+                <span className="font-medium">
+                    {order.createdBy?.displayName ||
+                    order.createdBy?.email ||
+                    '—'}
+                </span>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between gap-4">
@@ -461,6 +471,9 @@ function OrderDetailContent({
           </CardContent>
            {isActionable && (
             <CardFooter className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={() => exportPurchaseOrderPdf(order)} variant="outline" className="w-full">
+                <Download className="w-4 h-4 mr-2" /> PDF İndir
+              </Button>
               <Button asChild variant="outline" className="w-full">
                 <Link href={`/orders/${order.id}/edit`}>
                   <Pencil className="w-4 h-4 mr-2" /> Siparişi Düzenle
