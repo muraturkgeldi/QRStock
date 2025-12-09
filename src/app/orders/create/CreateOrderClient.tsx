@@ -135,17 +135,25 @@ export function CreateOrderClient() {
     try {
       // Firestore: /purchaseOrders koleksiyonuna tek doküman
       const ordersCol = collection(firestore, 'purchaseOrders');
+      const now = serverTimestamp();
   
       await addDoc(ordersCol, {
         uid: user.uid,
         orderNumber: `PO-${Date.now()}`,
-        orderDate: serverTimestamp(),
+        orderDate: now,
         status: 'draft',
         items: payload.map(it => ({
             ...it,
             receivedQuantity: 0,
             remainingQuantity: it.quantity
         })),
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: user.uid,
+        createdByEmail: user.email ?? null,
+        createdByName: user.displayName ?? null,
+        requesterDepartment: null, // Şimdilik boş
+        requesterRole: 'purchaser', // Şimdilik herkes purchaser
       });
   
       toast({

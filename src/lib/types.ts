@@ -88,6 +88,12 @@ export type PurchaseOrder = {
     updatedByUid?: string;
     cancelledByUid?: string;
     archivedByUid?: string;
+    // Ownership and Role fields
+    createdByUid: string;
+    createdByEmail?: string | null;
+    createdByName?: string | null;
+    requesterDepartment?: string | null;
+    requesterRole?: string | null;
 };
 
 
