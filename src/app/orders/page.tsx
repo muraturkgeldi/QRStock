@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -49,6 +48,8 @@ function formatDate(ts: any | undefined): string {
     return '-';
   }
 }
+
+type StatusFilter = 'all' | PurchaseOrder['status'];
 
 function StatusBadge({ status }: { status: PurchaseOrder['status'] }) {
   let label = '';
@@ -104,34 +105,40 @@ export default function OrdersPage() {
   } = useCollection<PurchaseOrder>('purchaseOrders', user?.uid);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const isLoading = userLoading || ordersLoading;
 
   const filtered = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
-    const list = [...orders]
-      .filter(o => o.status !== 'archived') // Arşivlenmişleri gösterme
+    // 1) Arşivlenmişleri listeden çıkar
+    let list = [...orders]
+      .filter((o) => o.status !== 'archived')
       .sort((a, b) => {
-      const da =
-        a.orderDate && typeof a.orderDate.toDate === 'function'
-          ? a.orderDate.toDate()
-          : new Date(0);
-      const db =
-        b.orderDate && typeof b.orderDate.toDate === 'function'
-          ? b.orderDate.toDate()
-          : new Date(0);
-      return db.getTime() - da.getTime();
-    });
+        const da =
+          a.orderDate && typeof a.orderDate.toDate === 'function'
+            ? a.orderDate.toDate()
+            : new Date(0);
+        const db =
+          b.orderDate && typeof b.orderDate.toDate === 'function'
+            ? b.orderDate.toDate()
+            : new Date(0);
+        return db.getTime() - da.getTime();
+      });
 
+    // 2) DURUM FİLTRESİ (Tümü / Ordered / Partially / Received / Cancelled)
+    if (statusFilter !== 'all') {
+      list = list.filter((o) => o.status === statusFilter);
+    }
+
+    // 3) ARAMA FİLTRESİ (sipariş no + ürün adı + stok kodu)
     if (!searchTerm) return list;
 
     const q = searchTerm.toLowerCase();
 
     return list.filter((order) => {
-      const orderNumberMatch = order.orderNumber
-        ?.toLowerCase()
-        .includes(q);
+      const orderNumberMatch = order.orderNumber?.toLowerCase().includes(q);
 
       const anyItemMatch = (order.items || []).some((it: any) => {
         const n = it.productName?.toLowerCase() || '';
@@ -141,7 +148,7 @@ export default function OrdersPage() {
 
       return orderNumberMatch || anyItemMatch;
     });
-  }, [orders, searchTerm]);
+  }, [orders, searchTerm, statusFilter]);
 
   if (error) {
     console.error('ORDERS_LIST_ERROR:', error);
@@ -211,6 +218,28 @@ export default function OrdersPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            <div className="flex flex-wrap gap-2 text-xs pt-1">
+              {[
+                { key: 'all', label: 'Tümü' },
+                { key: 'ordered', label: 'Sipariş Verildi' },
+                { key: 'partially-received', label: 'Kısmi Teslim' },
+                { key: 'received', label: 'Tamamlandı' },
+                { key: 'cancelled', label: 'İptal' },
+              ].map((opt) => (
+                <Button
+                  key={opt.key}
+                  type="button"
+                  size="sm"
+                  variant={statusFilter === opt.key ? 'default' : 'outline'}
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => setStatusFilter(opt.key as StatusFilter)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+
 
             {/* Mobil görünüm: kart kart */}
             <div className="space-y-3 md:hidden">
