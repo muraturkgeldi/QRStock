@@ -1,6 +1,7 @@
 
 'use client';
 
+import { use } from 'react';
 import { notFound, useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { useDoc, useUser, useCollection } from '@/firebase';
@@ -121,11 +122,14 @@ function AddProductDialog({
     );
 }
 
+type EditOrderPageProps = {
+  params: Promise<{ id: string }>;
+};
 
-export default function EditOrderPage({ params }: { params: { id: string } }) {
+export default function EditOrderPage({ params }: EditOrderPageProps) {
+    const { id: orderId } = use(params);
     const router = useRouter();
     const { toast } = useToast();
-    const { id: orderId } = params;
     const { user, loading: userLoading } = useUser();
 
     const { data: order, loading: orderLoading } = useDoc<PurchaseOrder>(`purchaseOrders/${orderId}`);
