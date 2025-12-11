@@ -94,12 +94,12 @@ export type PurchaseOrder = {
       email?: string;
       displayName?: string;
     };
-    createdByUid: string;
     requestedBy?: {
         uid?: string;
         name: string;
         department?: string;
     };
+    createdByUid: string;
     requesterDepartment?: string | null;
     requesterRole?: string | null;
 };
@@ -132,8 +132,8 @@ export type PurchaseOrderEvent = {
   at: Date | any; // Firestore Timestamp de olabilir
   actor: {
     uid: string;
-    email?: string;
-    displayName?: string;
+    email?: string | null;
+    displayName?: string | null;
     role?: 'admin' | 'purchaser' | 'warehouse' | 'manager' | 'viewer'; // ileride kullanırız
   };
 
