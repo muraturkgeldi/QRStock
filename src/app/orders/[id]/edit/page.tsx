@@ -184,12 +184,20 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     const handleSubmit = async () => {
         if (!user || !order) return;
         
-        const validItems = items.filter(item => item.quantity > 0);
-        if (validItems.length === 0) {
+        // 1. Filter out items with 0 quantity and prepare a clean payload.
+        const cleanItems = items.map(item => ({
+            ...item,
+            quantity: Number(item.quantity) || 0,
+            receivedQuantity: Number(item.receivedQuantity) || 0,
+            remainingQuantity: Math.max(0, (Number(item.quantity) || 0) - (Number(item.receivedQuantity) || 0)),
+        })).filter(item => item.quantity > 0);
+
+        // 2. If no valid items are left, show an error and stop.
+        if (cleanItems.length === 0) {
             toast({
                 variant: 'destructive',
-                title: 'Hata',
-                description: 'Sipariş en az bir ürün içermelidir (miktarı > 0).',
+                title: 'Geçersiz İşlem',
+                description: 'Siparişte miktarı 1\'den büyük en az bir ürün olmalıdır. Tüm satırları sildiyseniz siparişi ana sayfadan iptal edebilirsiniz.',
             });
             return;
         }
@@ -197,7 +205,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         setIsSubmitting(true);
         toast({ title: 'Kaydediliyor...', description: 'Sipariş güncelleniyor, lütfen bekleyin.' });
 
-        const result = await updatePurchaseOrder(order.id, validItems);
+        const result = await updatePurchaseOrder(order.id, cleanItems);
 
         if (result.ok) {
             toast({ title: 'Başarılı!', description: 'Sipariş başarıyla güncellendi.' });
@@ -208,8 +216,8 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
                 title: 'Hata',
                 description: result.error || 'Sipariş güncellenirken bir hata oluştu.',
             });
+             setIsSubmitting(false);
         }
-        setIsSubmitting(false);
     };
     
     if (isLoading) {
@@ -229,11 +237,11 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         notFound();
     }
 
-    if(order.status === 'received') {
+    if(order.status === 'received' || order.status === 'cancelled') {
         return (
              <div className="flex flex-col">
                 <TopBar title="Sipariş Düzenlenemez" />
-                <div className="p-4 text-center">Tamamlanmış siparişler düzenlenemez.</div>
+                <div className="p-4 text-center">Tamamlanmış veya iptal edilmiş siparişler düzenlenemez.</div>
             </div>
         )
     }

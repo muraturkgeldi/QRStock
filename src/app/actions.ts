@@ -544,11 +544,23 @@ export async function createPurchaseOrder(
 export async function updatePurchaseOrder(orderId: string, items: PurchaseOrderItem[]) {
     const uid = await getUidFromSession();
     try {
-        if (!orderId || !Array.isArray(items)) {
-            return { ok: false, error: 'Geçersiz veri: Sipariş ID ve ürün listesi zorunludur.' };
+        if (!orderId) {
+            return { ok: false, error: 'Geçersiz sipariş ID.' };
+        }
+        if (!Array.isArray(items)) {
+            return { ok: false, error: 'Ürün listesi dizi formatında olmalıdır.' };
+        }
+        // Add a server-side check to ensure we don't save an empty order.
+        if (items.length === 0) {
+            throw new Error('Siparişte en az bir ürün bulunmalıdır.');
+        }
+        const validItems = items.filter(it => it.quantity > 0 && it.productId);
+        if (validItems.length === 0) {
+            throw new Error('Siparişte miktarı 1\'den büyük en az bir geçerli ürün bulunmalıdır.');
         }
 
-        await updatePurchaseOrderInDB(orderId, uid, items);
+
+        await updatePurchaseOrderInDB(orderId, uid, validItems);
         
         revalidatePath('/orders');
         revalidatePath(`/orders/${orderId}`);
