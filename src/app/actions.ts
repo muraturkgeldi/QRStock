@@ -550,15 +550,21 @@ export async function updatePurchaseOrder(orderId: string, items: PurchaseOrderI
         if (!Array.isArray(items)) {
             return { ok: false, error: 'Ürün listesi dizi formatında olmalıdır.' };
         }
-        // Add a server-side check to ensure we don't save an empty order.
-        if (items.length === 0) {
-            throw new Error('Siparişte en az bir ürün bulunmalıdır.');
-        }
-        const validItems = items.filter(it => it.quantity > 0 && it.productId);
-        if (validItems.length === 0) {
+        
+        const cleanItems = items.map(item => ({
+            ...item,
+            quantity: Number(item.quantity) || 0,
+            receivedQuantity: Number(item.receivedQuantity) || 0,
+        })).filter(item => item.quantity > 0 && item.productId);
+
+        if (cleanItems.length === 0) {
             throw new Error('Siparişte miktarı 1\'den büyük en az bir geçerli ürün bulunmalıdır.');
         }
 
+        const validItems = cleanItems.map(item => ({
+            ...item,
+            remainingQuantity: Math.max(0, item.quantity - item.receivedQuantity),
+        }));
 
         await updatePurchaseOrderInDB(orderId, uid, validItems);
         

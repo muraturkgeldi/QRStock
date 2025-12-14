@@ -1,4 +1,3 @@
-
 'use client';
 
 import { use } from 'react';
@@ -181,35 +180,18 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         setItems(prev => [...prev, ...newItems]);
     };
 
-    const handleSubmit = async () => {
-        if (!user || !order) return;
-        
-        // 1. Filter out items with 0 quantity and prepare a clean payload.
-        const cleanItems = items.map(item => ({
-            ...item,
-            quantity: Number(item.quantity) || 0,
-            receivedQuantity: Number(item.receivedQuantity) || 0,
-            remainingQuantity: Math.max(0, (Number(item.quantity) || 0) - (Number(item.receivedQuantity) || 0)),
-        })).filter(item => item.quantity > 0);
+    // This is the server action we'll bind to the form
+    const updatePurchaseOrderWithId = updatePurchaseOrder.bind(null, orderId);
 
-        // 2. If no valid items are left, show an error and stop.
-        if (cleanItems.length === 0) {
-            toast({
-                variant: 'destructive',
-                title: 'Geçersiz İşlem',
-                description: 'Siparişte miktarı 1\'den büyük en az bir ürün olmalıdır. Tüm satırları sildiyseniz siparişi ana sayfadan iptal edebilirsiniz.',
-            });
-            return;
-        }
-        
+    const handleFormSubmit = async (formData: FormData) => {
         setIsSubmitting(true);
         toast({ title: 'Kaydediliyor...', description: 'Sipariş güncelleniyor, lütfen bekleyin.' });
 
-        const result = await updatePurchaseOrder(order.id, cleanItems);
+        const result = await updatePurchaseOrderWithId(items);
 
         if (result.ok) {
             toast({ title: 'Başarılı!', description: 'Sipariş başarıyla güncellendi.' });
-            router.push(`/orders/${order.id}`);
+            router.push(`/orders/${orderId}`);
         } else {
             toast({
                 variant: 'destructive',
@@ -249,7 +231,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     return (
         <div className="flex flex-col">
             <TopBar title={`Sipariş Düzenle: #${order.orderNumber}`} />
-            <div className="p-4 space-y-4">
+            <form action={handleFormSubmit} className="p-4 space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>Sipariş Kalemleri</CardTitle>
@@ -263,7 +245,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
                                         <p className="font-semibold text-sm">{item.productName}</p>
                                         <p className="text-xs text-muted-foreground">{item.productSku}</p>
                                     </div>
-                                     <Button onClick={() => handleRemoveItem(item.productId)} variant="ghost" size="icon" className="text-destructive h-8 w-8">
+                                     <Button type="button" onClick={() => handleRemoveItem(item.productId)} variant="ghost" size="icon" className="text-destructive h-8 w-8">
                                         <Trash2 className="w-4 h-4"/>
                                     </Button>
                                 </div>
@@ -274,7 +256,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
                                             id={`qty-${item.productId}`}
                                             type="number"
                                             inputMode="numeric"
-                                            min={1}
+                                            min={0}
                                             step={1}
                                             value={item.quantity}
                                             onChange={(e) => handleQuantityChange(item.productId, e.target.value)}
@@ -294,19 +276,19 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
                                 </div>
                             </div>
                         ))}
-                         <Button onClick={() => setIsAddProductDialogOpen(true)} variant="outline" className="w-full">
+                         <Button type="button" onClick={() => setIsAddProductDialogOpen(true)} variant="outline" className="w-full">
                             <PlusCircle className="w-4 h-4 mr-2" />
                             Yeni Ürün Ekle
                         </Button>
                     </CardContent>
                 </Card>
                  <div className="sticky bottom-4 pb-4">
-                    <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full" size="lg">
+                    <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
                         <Save className="mr-2 h-5 w-5" />
                         {isSubmitting ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
                     </Button>
                 </div>
-            </div>
+            </form>
             {user && (
                 <AddProductDialog 
                     allProducts={allProducts}
