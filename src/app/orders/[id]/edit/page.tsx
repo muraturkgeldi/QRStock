@@ -180,27 +180,19 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         setItems(prev => [...prev, ...newItems]);
     };
 
-    // This is the server action we'll bind to the form
-    const updatePurchaseOrderWithId = updatePurchaseOrder.bind(null, orderId);
-
-    const handleFormSubmit = async (formData: FormData) => {
-        setIsSubmitting(true);
-        toast({ title: 'Kaydediliyor...', description: 'Sipariş güncelleniyor, lütfen bekleyin.' });
-
-        const result = await updatePurchaseOrderWithId(items);
-
-        if (result.ok) {
-            toast({ title: 'Başarılı!', description: 'Sipariş başarıyla güncellendi.' });
-            router.push(`/orders/${orderId}`);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Hata',
-                description: result.error || 'Sipariş güncellenirken bir hata oluştu.',
-            });
-             setIsSubmitting(false);
-        }
-    };
+    const cleanedItemsForSave = useMemo(() =>
+        (items ?? [])
+            .filter(it => (it.quantity ?? 0) > 0)
+            .map(it => ({
+                productId: it.productId,
+                productName: it.productName,
+                productSku: it.productSku,
+                quantity: it.quantity,
+                receivedQuantity: it.receivedQuantity,
+                remainingQuantity: it.remainingQuantity, // This will be recalculated on the server
+                description: it.description ?? '',
+            })),
+    [items]);
     
     if (isLoading) {
         return (
@@ -231,7 +223,33 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     return (
         <div className="flex flex-col">
             <TopBar title={`Sipariş Düzenle: #${order.orderNumber}`} />
-            <form action={handleFormSubmit} className="p-4 space-y-4">
+            <form action={async () => {
+                if (cleanedItemsForSave.length === 0) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Geçersiz İşlem',
+                        description: 'Siparişte en az 1 satır kalmalı. Tüm satırları sildiyseniz siparişi iptal edin.',
+                    });
+                    return;
+                }
+                
+                setIsSubmitting(true);
+                toast({ title: 'Kaydediliyor...', description: 'Sipariş güncelleniyor, lütfen bekleyin.' });
+
+                const result = await updatePurchaseOrder(orderId, cleanedItemsForSave);
+
+                if (result.ok) {
+                    toast({ title: 'Başarılı!', description: 'Sipariş başarıyla güncellendi.' });
+                    router.push(`/orders/${orderId}`);
+                } else {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Hata',
+                        description: result.error || 'Sipariş güncellenirken bir hata oluştu.',
+                    });
+                     setIsSubmitting(false);
+                }
+            }} className="p-4 space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>Sipariş Kalemleri</CardTitle>

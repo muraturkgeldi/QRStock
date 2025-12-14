@@ -541,32 +541,36 @@ export async function createPurchaseOrder(
   }
 }
 
-export async function updatePurchaseOrder(orderId: string, items: PurchaseOrderItem[]) {
+export async function updatePurchaseOrder(orderId: string, items: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[]) {
     const uid = await getUidFromSession();
     try {
         if (!orderId) {
             return { ok: false, error: 'Geçersiz sipariş ID.' };
         }
-        if (!Array.isArray(items)) {
-            return { ok: false, error: 'Ürün listesi dizi formatında olmalıdır.' };
-        }
-        
-        const cleanItems = items.map(item => ({
-            ...item,
-            quantity: Number(item.quantity) || 0,
-            receivedQuantity: Number(item.receivedQuantity) || 0,
-        })).filter(item => item.quantity > 0 && item.productId);
-
-        if (cleanItems.length === 0) {
-            throw new Error('Siparişte miktarı 1\'den büyük en az bir geçerli ürün bulunmalıdır.');
+        if (!Array.isArray(items) || items.length === 0) {
+            throw new Error('Siparişte en az bir geçerli ürün bulunmalıdır.');
         }
 
-        const validItems = cleanItems.map(item => ({
-            ...item,
-            remainingQuantity: Math.max(0, item.quantity - item.receivedQuantity),
-        }));
+        // Re-calculate remainingQuantity on the server to be safe
+        const orderRef = doc(getServerDb(), 'purchaseOrders', orderId);
+        const orderSnap = await getDoc(orderRef);
+        if (!orderSnap.exists() || orderSnap.data().uid !== uid) {
+            throw new Error('Sipariş bulunamadı veya yetkiniz yok.');
+        }
 
-        await updatePurchaseOrderInDB(orderId, uid, validItems);
+        const existingItemsMap = new Map(orderSnap.data().items.map((item: PurchaseOrderItem) => [item.productId, item]));
+
+        const finalItems = items.map(item => {
+            const existingItem = existingItemsMap.get(item.productId);
+            const receivedQuantity = existingItem ? existingItem.receivedQuantity : 0;
+            return {
+                ...item,
+                receivedQuantity: receivedQuantity,
+                remainingQuantity: Math.max(0, item.quantity - receivedQuantity),
+            };
+        });
+
+        await updatePurchaseOrderInDB(orderId, uid, finalItems);
         
         revalidatePath('/orders');
         revalidatePath(`/orders/${orderId}`);
