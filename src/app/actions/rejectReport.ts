@@ -1,7 +1,7 @@
 
 'use server';
 
-import { adminDb as getAdminDb } from '@/lib/admin.server';
+import { adminDb } from '@/lib/admin.server';
 import admin from 'firebase-admin';
 import type { ReportSignatureKind } from './submitReport';
 
@@ -14,7 +14,7 @@ export type RejectReportInput = {
 };
 
 export async function rejectReport(input: RejectReportInput) {
-  const db = getAdminDb();
+  const db = adminDb();
    if (!db) {
     throw new Error('Veritabanı bağlantısı kurulamadı.');
   }

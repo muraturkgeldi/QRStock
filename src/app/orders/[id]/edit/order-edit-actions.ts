@@ -20,7 +20,7 @@ export async function updateOrderItemsAction(
 ) {
   const db = adminDb();
   if (!db) {
-    throw new Error('Veritabanı bağlantısı kurulamadı.');
+    throw new Error('Veritabanı bağlantısı kurulamadı. Sunucu yapılandırmasını kontrol edin.');
   }
   const ref = db.collection('purchaseOrders').doc(orderId);
 

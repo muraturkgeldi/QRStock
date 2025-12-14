@@ -1,7 +1,7 @@
 
 'use server';
 
-import { adminDb as getAdminDb } from '@/lib/admin.server';
+import { adminDb } from '@/lib/admin.server';
 import admin from 'firebase-admin';
 
 export type UpdateDailyStatsOnGrnPostInput = {
@@ -26,7 +26,7 @@ function toDateKey(d: string | Date): string {
 export async function updateDailyStatsOnGrnPost(
   input: UpdateDailyStatsOnGrnPostInput
 ) {
-  const db = getAdminDb();
+  const db = adminDb();
   if (!db) {
     throw new Error('Veritabanı bağlantısı kurulamadı.');
   }

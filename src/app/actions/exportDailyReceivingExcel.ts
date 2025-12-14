@@ -1,7 +1,7 @@
 
 'use server';
 
-import { adminDb as getAdminDb } from '@/lib/admin.server';
+import { adminDb } from '@/lib/admin.server';
 import { parseReportId, type ReceivingReportIdParts } from '@/utils/reportId';
 import admin from 'firebase-admin';
 
@@ -42,7 +42,7 @@ export type DailyReceivingReportData = {
 export async function buildDailyReceivingReportData(
   parsed: ReceivingReportIdParts
 ): Promise<DailyReceivingReportData> {
-  const db = getAdminDb();
+  const db = adminDb();
   if (!db) {
     throw new Error('Veritabanı bağlantısı kurulamadı.');
   }

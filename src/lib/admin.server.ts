@@ -14,6 +14,15 @@ function loadServiceAccount(): any {
   }
   
   try {
+    // The key might be base64 encoded.
+    if (!envKey.includes('{')) {
+        const decodedKey = Buffer.from(envKey, 'base64').toString('utf-8');
+        const parsedKey = JSON.parse(decodedKey);
+        if (parsedKey.private_key) {
+           parsedKey.private_key = parsedKey.private_key.replace(/\\n/g, '\n');
+        }
+        return parsedKey;
+    }
     const parsedKey = JSON.parse(envKey);
     // The key might be double-escaped in some environments.
     if (parsedKey.private_key) {
@@ -51,20 +60,15 @@ function initAdminApp(): App | null {
   }
 }
 
-// These functions will now throw an error if the Admin SDK is not properly initialized.
-// This makes it clear where the configuration issue lies.
+// These functions will now return null if the Admin SDK is not properly initialized.
 export function adminAuth() {
   const app = initAdminApp();
-  if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized. Check your FIREBASE_SERVICE_ACCOUNT_KEY environment variable.");
-  }
+  if (!app) return null;
   return getAuth(app);
 }
 
 export function adminDb() {
   const app = initAdminApp();
-   if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized. Check your FIREBASE_SERVICE_ACCOUNT_KEY environment variable.");
-  }
+   if (!app) return null;
   return getFirestore(app);
 }
