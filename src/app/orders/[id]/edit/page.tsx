@@ -1,3 +1,4 @@
+
 'use client';
 
 import { use, useMemo, useState, useEffect } from 'react';
@@ -192,6 +193,39 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
           description: it.description ?? '',
         })),
     [items]);
+
+    const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        
+        if (cleanedItemsForSave.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Geçersiz İşlem',
+                description: 'Siparişte en az 1 satır kalmalı. Tüm satırları sildiyseniz siparişi iptal edin.',
+            });
+            return;
+        }
+        
+        setIsSubmitting(true);
+        toast({ title: 'Kaydediliyor...', description: 'Sipariş güncelleniyor, lütfen bekleyin.' });
+
+        const formData = new FormData();
+        formData.append('orderId', orderId);
+        formData.append('items', JSON.stringify(cleanedItemsForSave));
+        
+        try {
+            await updatePurchaseOrder(formData);
+            toast({ title: 'Başarılı!', description: 'Sipariş başarıyla güncellendi.' });
+            router.push(`/orders/${orderId}`);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Hata',
+                description: error.message || 'Sipariş güncellenirken bir hata oluştu.',
+            });
+             setIsSubmitting(false);
+        }
+    };
     
     if (isLoading) {
         return (
@@ -222,33 +256,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     return (
         <div className="flex flex-col">
             <TopBar title={`Sipariş Düzenle: #${order.orderNumber}`} />
-            <form action={async () => {
-                if (cleanedItemsForSave.length === 0) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Geçersiz İşlem',
-                        description: 'Siparişte en az 1 satır kalmalı. Tüm satırları sildiyseniz siparişi iptal edin.',
-                    });
-                    return;
-                }
-                
-                setIsSubmitting(true);
-                toast({ title: 'Kaydediliyor...', description: 'Sipariş güncelleniyor, lütfen bekleyin.' });
-
-                const result = await updatePurchaseOrder(orderId, cleanedItemsForSave);
-
-                if (result.ok) {
-                    toast({ title: 'Başarılı!', description: 'Sipariş başarıyla güncellendi.' });
-                    router.push(`/orders/${orderId}`);
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Hata',
-                        description: result.error || 'Sipariş güncellenirken bir hata oluştu.',
-                    });
-                     setIsSubmitting(false);
-                }
-            }} className="p-4 space-y-4">
+            <form onSubmit={handleFormSubmit} className="p-4 space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>Sipariş Kalemleri</CardTitle>
@@ -318,3 +326,6 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         </div>
     );
 }
+
+
+    

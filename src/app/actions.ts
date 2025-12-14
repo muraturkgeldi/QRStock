@@ -541,18 +541,30 @@ export async function createPurchaseOrder(
   }
 }
 
-export async function updatePurchaseOrder(orderId: string, items: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[]) {
+export async function updatePurchaseOrder(formData: FormData) {
     const uid = await getUidFromSession();
-    try {
-        if (!orderId) {
-            return { ok: false, error: 'Geçersiz sipariş ID.' };
-        }
-        if (!Array.isArray(items) || items.length === 0) {
-            throw new Error('Siparişte en az bir geçerli ürün bulunmalıdır.');
-        }
+    const orderId = formData.get('orderId') as string;
+    const itemsJson = formData.get('items') as string;
 
+    if (!orderId || !itemsJson) {
+      throw new Error('Eksik bilgi: orderId ve items zorunludur.');
+    }
+    
+    let items: PurchaseOrderItem[];
+    try {
+      items = JSON.parse(itemsJson);
+    } catch {
+      throw new Error('Geçersiz ürün formatı.');
+    }
+
+    if (!Array.isArray(items)) {
+        throw new Error('Ürün listesi bir dizi olmalıdır.');
+    }
+
+    try {
         const orderRef = doc(getServerDb(), 'purchaseOrders', orderId);
         const orderSnap = await getDoc(orderRef);
+
         if (!orderSnap.exists() || orderSnap.data().uid !== uid) {
             throw new Error('Sipariş bulunamadı veya yetkiniz yok.');
         }
@@ -574,11 +586,9 @@ export async function updatePurchaseOrder(orderId: string, items: Omit<PurchaseO
         revalidatePath('/orders');
         revalidatePath(`/orders/${orderId}`);
 
-        return { ok: true };
-
     } catch (e: any) {
         console.error('UPDATE_PO_ERROR:', e?.stack || e);
-        return { ok: false, error: e.message || 'UPDATE_PO_FAILED', code: e.code || null };
+        throw new Error(e.message || 'Sipariş güncellenirken bir hata oluştu.');
     }
 }
 
@@ -796,3 +806,7 @@ async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin
         return { isAdmin: false, uid: null };
     }
 }
+
+    
+
+    
