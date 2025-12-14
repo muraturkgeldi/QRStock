@@ -193,10 +193,8 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
           description: it.description ?? '',
         })),
     [items]);
-
-    const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        
+    
+    const handleFormSubmit = async () => {
         if (cleanedItemsForSave.length === 0) {
             toast({
                 variant: 'destructive',
@@ -256,7 +254,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     return (
         <div className="flex flex-col">
             <TopBar title={`Sipariş Düzenle: #${order.orderNumber}`} />
-            <form onSubmit={handleFormSubmit} className="p-4 space-y-4">
+            <div className="p-4 space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>Sipariş Kalemleri</CardTitle>
@@ -308,12 +306,12 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
                     </CardContent>
                 </Card>
                  <div className="sticky bottom-4 pb-4">
-                    <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
+                    <Button onClick={handleFormSubmit} disabled={isSubmitting} className="w-full" size="lg">
                         <Save className="mr-2 h-5 w-5" />
                         {isSubmitting ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
                     </Button>
                 </div>
-            </form>
+            </div>
             {user && (
                 <AddProductDialog 
                     allProducts={allProducts}
@@ -327,5 +325,7 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     );
 }
 
+
+    
 
     
