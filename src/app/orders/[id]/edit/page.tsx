@@ -122,11 +122,11 @@ function AddProductDialog({
 }
 
 type EditOrderPageProps = {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 };
 
 export default function EditOrderPage({ params }: EditOrderPageProps) {
-    const { id: orderId } = use(params);
+    const { id: orderId } = params;
     const router = useRouter();
     const { toast } = useToast();
     const { user, loading: userLoading } = useUser();
@@ -139,8 +139,15 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
     const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
 
     useEffect(() => {
-        if (order) {
-            setItems(order.items);
+        if (order?.items) {
+            // Ensure all numeric fields are present to avoid NaN issues
+            const sanitizedItems = order.items.map(item => ({
+                ...item,
+                quantity: item.quantity ?? 0,
+                receivedQuantity: item.receivedQuantity ?? 0,
+                remainingQuantity: item.remainingQuantity ?? 0
+            }));
+            setItems(sanitizedItems);
         }
     }, [order]);
 
@@ -324,8 +331,3 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         </div>
     );
 }
-
-
-    
-
-    

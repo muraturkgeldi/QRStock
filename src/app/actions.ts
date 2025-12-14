@@ -573,11 +573,13 @@ export async function updatePurchaseOrder(formData: FormData) {
 
         const finalItems = items.map(item => {
             const existingItem = existingItemsMap.get(item.productId);
-            const receivedQuantity = existingItem ? existingItem.receivedQuantity : 0;
+            const receivedQuantity = existingItem ? (Number(existingItem.receivedQuantity) || 0) : 0;
+            const quantity = Number(item.quantity) || 0;
             return {
                 ...item,
+                quantity: quantity,
                 receivedQuantity: receivedQuantity,
-                remainingQuantity: Math.max(0, item.quantity - receivedQuantity),
+                remainingQuantity: Math.max(0, quantity - receivedQuantity),
             };
         });
 
