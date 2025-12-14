@@ -551,7 +551,6 @@ export async function updatePurchaseOrder(orderId: string, items: Omit<PurchaseO
             throw new Error('Siparişte en az bir geçerli ürün bulunmalıdır.');
         }
 
-        // Re-calculate remainingQuantity on the server to be safe
         const orderRef = doc(getServerDb(), 'purchaseOrders', orderId);
         const orderSnap = await getDoc(orderRef);
         if (!orderSnap.exists() || orderSnap.data().uid !== uid) {

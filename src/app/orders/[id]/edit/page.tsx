@@ -1,8 +1,7 @@
 'use client';
 
-import { use } from 'react';
+import { use, useMemo, useState, useEffect } from 'react';
 import { notFound, useRouter } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
 import { useDoc, useUser, useCollection } from '@/firebase';
 import type { PurchaseOrder, PurchaseOrderItem, Product } from '@/lib/types';
 import TopBar from '@/components/ui/TopBar';
@@ -179,19 +178,19 @@ export default function EditOrderPage({ params }: EditOrderPageProps) {
         }));
         setItems(prev => [...prev, ...newItems]);
     };
-
+    
     const cleanedItemsForSave = useMemo(() =>
-        (items ?? [])
-            .filter(it => (it.quantity ?? 0) > 0)
-            .map(it => ({
-                productId: it.productId,
-                productName: it.productName,
-                productSku: it.productSku,
-                quantity: it.quantity,
-                receivedQuantity: it.receivedQuantity,
-                remainingQuantity: it.remainingQuantity, // This will be recalculated on the server
-                description: it.description ?? '',
-            })),
+      (items ?? [])
+        .filter(it => (it.quantity ?? 0) > 0)
+        .map(it => ({
+          productId: it.productId,
+          productName: it.productName,
+          productSku: it.productSku,
+          quantity: it.quantity,
+          receivedQuantity: it.receivedQuantity,
+          remainingQuantity: 0, // This will be recalculated on the server
+          description: it.description ?? '',
+        })),
     [items]);
     
     if (isLoading) {
