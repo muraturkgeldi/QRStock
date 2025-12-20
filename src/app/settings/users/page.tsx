@@ -1,12 +1,14 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import TopBar from '@/components/ui/TopBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Users, Plus, Trash2, UserCog, Download } from 'lucide-react';
+import { Search, Users, Plus, Trash2, UserCog } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
@@ -31,55 +33,82 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useCollection, useUser } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { updateUserDisplayName } from '@/app/actions';
 
-// Firestore'daki users/{uid} dokümanının beklenen yapısı
+
 type FirestoreUser = {
-  id: string; // useCollection id ekliyor
+  id: string;
   email: string;
   displayName?: string;
   role?: 'admin' | 'editor' | 'user';
-  firstName?: string;
-  lastName?: string;
-  department?: string;
-  title?: string;
-  createdAt?: string;
+  createdAt?: any;
 };
 
-// Arayüzde kullanılacak birleşik tip
-type Staff = {
-  uid: string;
-  email: string;
-  displayName: string;
-  role: 'admin' | 'editor' | 'user';
-  disabled: boolean;
-  profile: {
-    firstName: string;
-    lastName: string;
-    department: string;
-    title: string;
+function EditUserDialog({ user: initialUser, onUserUpdated }: { user: FirestoreUser, onUserUpdated: (uid: string, updatedData: Partial<FirestoreUser>) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+  
+  const [displayName, setDisplayName] = useState(initialUser.displayName || '');
+  const [role, setRole] = useState(initialUser.role || 'user');
+
+  useEffect(() => {
+    if (isOpen) {
+      setDisplayName(initialUser.displayName || '');
+      setRole(initialUser.role || 'user');
+    }
+  }, [isOpen, initialUser]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    toast({ title: 'Kaydediliyor...', description: 'Kullanıcı bilgileri güncelleniyor.' });
+    try {
+      await updateUserDisplayName(initialUser.id, displayName);
+      onUserUpdated(initialUser.id, { displayName, role });
+
+      toast({ title: 'Başarılı!', description: `${displayName} güncellendi.` });
+      setIsOpen(false);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Hata!', description: error.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
-  metadata: {
-    creationTime: string;
-    lastSignInTime: string;
-  }
-};
 
-// --- Bileşenler ---
-
-// Kullanıcı Ekleme Diyaloğu (şimdilik devre dışı)
-function AddUserDialog({ onUserAdded }: { onUserAdded: (newUser: Staff) => void }) {
   return (
-    <Button disabled>
-      <Plus className="mr-2 h-4 w-4" /> Yeni Kullanıcı
-    </Button>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsOpen(true)}>
+        <UserCog className="w-4 h-4" />
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Kullanıcıyı Düzenle</DialogTitle>
+          <DialogDescription>{initialUser.displayName || initialUser.email}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="displayName" className="text-right">Görünür Ad</Label>
+            <Input id="displayName" name="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="role" className="text-right">Rol</Label>
+            <p className="col-span-3 text-sm text-muted-foreground">(Rol değiştirme yakında eklenecek)</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
+          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// Kullanıcı Silme Onay Diyaloğu
-function DeleteDialog({ user, onConfirm, isSaving }: { user: Staff; onConfirm: () => void, isSaving: boolean; }) {
+
+function DeleteDialog({ user, onConfirm, isSaving }: { user: FirestoreUser; onConfirm: () => void, isSaving: boolean; }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
@@ -114,162 +143,35 @@ function DeleteDialog({ user, onConfirm, isSaving }: { user: Staff; onConfirm: (
   );
 }
 
-// Kullanıcı Düzenleme Diyaloğu (Firestore üzerinden PATCH)
-function EditUserDialog({ user, onUserUpdated }: { user: Staff, onUserUpdated: (uid: string, updatedUser: Staff) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
-  const firestore = useFirestore();
-
-  const [formData, setFormData] = useState({
-    displayName: user.displayName || '',
-    role: user.role || 'user',
-    firstName: user.profile?.firstName || '',
-    lastName: user.profile?.lastName || '',
-    department: user.profile?.department || '',
-    title: user.profile?.title || '',
-  });
-
-  useEffect(() => {
-    setFormData({
-      displayName: user.displayName || '',
-      role: user.role || 'user',
-      firstName: user.profile?.firstName || '',
-      lastName: user.profile?.lastName || '',
-      department: user.profile?.department || '',
-      title: user.profile?.title || '',
-    });
-  }, [user, isOpen]);
-
-  const handleSave = async () => {
-    if (!firestore) return;
-    setIsSaving(true);
-    toast({ title: 'Kaydediliyor...', description: 'Kullanıcı bilgileri güncelleniyor.' });
-    try {
-      // Firestore users/{uid} dokümanını güncelle
-      await updateDoc(doc(firestore, 'users', user.uid), {
-        displayName: formData.displayName,
-        role: formData.role,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        department: formData.department,
-        title: formData.title,
-      });
-
-      toast({ title: 'Başarılı!', description: `${user.displayName} güncellendi.` });
-
-      const updatedUser: Staff = {
-        ...user,
-        displayName: formData.displayName,
-        role: formData.role as Staff['role'],
-        profile: {
-          ...user.profile,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          department: formData.department,
-          title: formData.title,
-        },
-      };
-
-      onUserUpdated(user.uid, updatedUser);
-      setIsOpen(false);
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Hata!', description: error.message });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsOpen(true)}>
-        <UserCog className="w-4 h-4" />
-      </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Kullanıcıyı Düzenle</DialogTitle>
-          <DialogDescription>{user.displayName || user.email}</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="displayName" className="text-right">Görünür Ad</Label>
-            <Input id="displayName" name="displayName" value={formData.displayName} onChange={handleChange} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="firstName" className="text-right">İsim</Label>
-            <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="lastName" className="text-right">Soyisim</Label>
-            <Input id="lastName" name="lastName" value={formData.lastName} onChange={handleChange} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">Unvan</Label>
-            <Input id="title" name="title" value={formData.title} onChange={handleChange} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="department" className="text-right">Departman</Label>
-            <Input id="department" name="department" value={formData.department} onChange={handleChange} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="role" className="text-right">Rol</Label>
-            <select
-              name="role"
-              id="role"
-              value={formData.role}
-              onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as Staff['role'] }))}
-              className="col-span-3 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="user">Kullanıcı</option>
-              <option value="editor">Editör</option>
-              <option value="admin">Yönetici</option>
-            </select>
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
-          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// Ana Sayfa Bileşeni
 export default function ManageUsersPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
 
+  // First, verify user's admin role
+  const { user: currentUser, loading: userLoading } = useUser();
   const { data: userDocs, loading: usersLoading, error: usersError } = useCollection<FirestoreUser>('users');
-
-  const [allUsers, setAllUsers] = useState<Staff[]>([]);
+  
+  const [allUsers, setAllUsers] = useState<FirestoreUser[]>([]);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Firestore user dokümanlarını Staff tipine map et
+  const isAdmin = currentUser?.role === 'admin';
+  const isLoading = userLoading || usersLoading;
+
   useEffect(() => {
-    const mapped: Staff[] = userDocs.map((u) => ({
-      uid: u.id,
-      email: u.email || '',
-      displayName: u.displayName || u.email || 'İsimsiz Kullanıcı',
-      role: (u.role || 'user') as Staff['role'],
-      disabled: false,
-      profile: {
-        firstName: u.firstName || '',
-        lastName: u.lastName || '',
-        department: u.department || '',
-        title: u.title || '',
-      },
-      metadata: {
-        creationTime: u.createdAt || '',
-        lastSignInTime: '',
-      },
-    }));
-    setAllUsers(mapped);
+    if (!userLoading && !isAdmin) {
+      toast({
+        variant: 'destructive',
+        title: 'Yetkisiz Erişim',
+        description: 'Bu sayfayı görüntülemek için yönetici olmalısınız.',
+      });
+      router.push('/dashboard');
+    }
+  }, [userLoading, isAdmin, router, toast]);
+
+  useEffect(() => {
+    setAllUsers(userDocs);
   }, [userDocs]);
 
   useEffect(() => {
@@ -282,21 +184,19 @@ export default function ManageUsersPage() {
     }
   }, [usersError, toast]);
 
-  const handleUserUpdated = (uid: string, updatedUser: Staff) => {
-    setAllUsers(prev => prev.map(u => u.uid === uid ? updatedUser : u));
+  const handleUserUpdated = (uid: string, updatedData: Partial<FirestoreUser>) => {
+    setAllUsers(prev => prev.map(u => u.id === uid ? { ...u, ...updatedData } : u));
   };
-
-  const handleUserDeleted = (uid: string) => {
-    setAllUsers(prev => prev.filter(u => u.uid !== uid));
-  };
-
+  
   const deleteUser = async (uid: string) => {
     if (!firestore) return;
     setIsDeleting(uid);
     try {
+      // NOTE: This only deletes the Firestore document.
+      // The Firebase Auth user is not deleted here.
       await deleteDoc(doc(firestore, 'users', uid));
-      toast({ title: 'Başarılı!', description: 'Kullanıcı başarıyla silindi.' });
-      handleUserDeleted(uid);
+      toast({ title: 'Başarılı!', description: 'Kullanıcı Firestore\'dan başarıyla silindi.' });
+      setAllUsers(prev => prev.filter(u => u.id !== uid));
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Hata!', description: error.message });
     } finally {
@@ -304,27 +204,36 @@ export default function ManageUsersPage() {
     }
   };
 
+
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return allUsers;
     const lower = searchTerm.toLowerCase();
     return allUsers.filter(u =>
-      u.email.toLowerCase().includes(lower) ||
-      u.displayName.toLowerCase().includes(lower) ||
-      (u.profile?.firstName && u.profile.firstName.toLowerCase().includes(lower)) ||
-      (u.profile?.lastName && u.profile.lastName.toLowerCase().includes(lower))
+      (u.email || '').toLowerCase().includes(lower) ||
+      (u.displayName || '').toLowerCase().includes(lower)
     );
   }, [allUsers, searchTerm]);
   
-  const RoleBadge = ({ role }: { role: Staff['role'] }) => {
+  const RoleBadge = ({ role }: { role?: FirestoreUser['role'] }) => {
+    const roleText = role || 'user';
     const style = {
       admin: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
       editor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
       user: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     };
-    return <Badge variant="outline" className={style[role] || style.user}>{role}</Badge>;
+    return <Badge variant="outline" className={style[roleText]}>{roleText}</Badge>;
   };
 
-  const isLoading = usersLoading;
+  if (isLoading || !isAdmin) {
+    return (
+        <div className="flex flex-col h-dvh bg-app-bg">
+            <TopBar title="Kullanıcıları Yönet" />
+            <div className="p-4 text-center">
+                {userLoading ? 'Yetki kontrol ediliyor...' : 'Yükleniyor...'}
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-dvh bg-app-bg">
@@ -337,10 +246,12 @@ export default function ManageUsersPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" /> Sistem Kullanıcıları
                 </CardTitle>
-                <CardDescription>Mevcut kullanıcıları düzenleyin, silin veya yeni kullanıcılar ekleyin.</CardDescription>
+                <CardDescription>Mevcut kullanıcıları düzenleyin veya silin.</CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <AddUserDialog onUserAdded={(newUser) => setAllUsers(prev => [newUser, ...prev])} />
+                <Button disabled>
+                  <Plus className="mr-2 h-4 w-4" /> Yeni Kullanıcı (Yakında)
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -349,7 +260,7 @@ export default function ManageUsersPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Ad, soyad, e-posta ile filtrele..."
+                placeholder="Ad veya e-posta ile filtrele..."
                 className="w-full pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -361,17 +272,17 @@ export default function ManageUsersPage() {
                   Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full my-1" />)
                 ) : filteredUsers.length > 0 ? (
                   filteredUsers.map(user => (
-                    <div key={user.uid} className="flex items-center gap-2 p-2 border-b last:border-b-0">
+                    <div key={user.id} className="flex items-center gap-2 p-2 border-b last:border-b-0">
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold">{user.displayName}</p>
+                          <p className="font-semibold">{user.displayName || 'İsimsiz'}</p>
                           <RoleBadge role={user.role} />
                         </div>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                       <div className="flex items-center">
                         <EditUserDialog user={user} onUserUpdated={handleUserUpdated} />
-                        <DeleteDialog user={user} onConfirm={() => deleteUser(user.uid)} isSaving={isDeleting === user.uid} />
+                        <DeleteDialog user={user} onConfirm={() => deleteUser(user.id)} isSaving={isDeleting === user.id} />
                       </div>
                     </div>
                   ))
@@ -386,3 +297,5 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+    
