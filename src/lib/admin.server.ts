@@ -24,21 +24,24 @@ function loadServiceAccount(): any {
   }
   
   try {
-    if (!envKey.includes('{')) {
+    // Check if the key is base64 encoded or a raw JSON string
+    if (!envKey.trim().startsWith('{')) {
         const decodedKey = Buffer.from(envKey, 'base64').toString('utf-8');
         const parsedKey = JSON.parse(decodedKey);
+        // Important: newlines in private keys must be un-escaped
         if (parsedKey.private_key) {
            parsedKey.private_key = parsedKey.private_key.replace(/\\n/g, '\n');
         }
         return parsedKey;
     }
+    // It's a raw JSON string
     const parsedKey = JSON.parse(envKey);
     if (parsedKey.private_key) {
       parsedKey.private_key = parsedKey.private_key.replace(/\\n/g, '\n');
     }
     return parsedKey;
   } catch (e) {
-    console.error('Firebase Admin: Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it is valid JSON.', e);
+    console.error('Firebase Admin: Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it is valid JSON or a base64-encoded version of it.', e);
     return null;
   }
 }
