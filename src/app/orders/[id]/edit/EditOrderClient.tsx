@@ -29,7 +29,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { updateOrderItemsOnClient } from './order-edit-actions';
+import { updateOrderItemsClient } from "@/lib/orders.client";
 
 
 type EditOrderClientProps = {
@@ -221,7 +221,7 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
 
     setSaving(true);
     try {
-      await updateOrderItemsOnClient(order.id, payload);
+      await updateOrderItemsClient(order.id, payload);
       toast({
         title: 'Sipariş güncellendi',
         description: 'Değişiklikler kaydedildi.',
