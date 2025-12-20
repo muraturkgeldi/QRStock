@@ -1,11 +1,9 @@
-'use server';
+'use client';
 
-import { FieldValue } from 'firebase-admin/firestore';
-import { revalidatePath } from 'next/cache';
-import { adminDb } from '@/lib/admin.server';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/firebase'; // Assuming db is exported from your client-side firebase setup
 
-// UI'dan gelecek minimal satır tipi
-type EditableItem = {
+export type EditableItem = {
   productId: string;
   productName: string;
   productSku: string;
@@ -14,22 +12,13 @@ type EditableItem = {
   receivedQuantity?: number;
 };
 
-export async function updateOrderItemsAction(
+export async function updateOrderItemsOnClient(
   orderId: string,
   items: EditableItem[],
 ) {
-  const db = adminDb();
-  if (!db) {
-    throw new Error('Veritabanı bağlantısı kurulamadı. Sunucu yapılandırmasını kontrol edin.');
-  }
-  const ref = db.collection('purchaseOrders').doc(orderId);
-
-  await ref.update({
+  const ref = doc(db, 'purchaseOrders', orderId);
+  await updateDoc(ref, {
     items,
-    updatedAt: FieldValue.serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
-
-  // Liste + detay sayfası yeniden çekilsin
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath('/orders');
 }

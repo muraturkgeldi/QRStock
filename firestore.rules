@@ -1,12 +1,63 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: These rules are insecure and are for development purposes only.
-    // They allow anyone to read and write to your entire database.
-    // TODO: Re-secure these rules after debugging the authentication flow.
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isEditorOrAdmin() {
+        let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+        return userRole == 'admin' || userRole == 'editor';
+    }
+
+    // Collection rules
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (isOwner(resource.data.uid) || isAdmin());
+    }
+
+    match /locations/{locationId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (isOwner(resource.data.uid) || isAdmin());
+    }
+
+    match /stockItems/{stockItemId} {
+      allow read: if isSignedIn();
+      // Allow create/update/delete only if user owns the stock item
+      allow write: if isSignedIn() && (isOwner(resource.data.uid) || isAdmin());
+    }
+
+    match /stockMovements/{movementId} {
+      allow read: if isSignedIn();
+      // Allow create only if user owns the movement record
+      allow create: if isSignedIn() && isOwner(request.resource.data.uid);
+      // Generally, movements are append-only, so updates/deletes are disallowed
+      allow update, delete: if false;
+    }
+    
+    match /settings/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /purchaseOrders/{orderId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
     }
   }
 }
