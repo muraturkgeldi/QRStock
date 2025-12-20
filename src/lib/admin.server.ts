@@ -52,7 +52,7 @@ function initAdminApp(): App | null {
     });
     return adminApp;
   } catch(e: any) {
-    console.error("Firebase Admin SDK initialization failed:", e);
+    console.error("Firebase Admin SDK initialization failed. This can happen if FIREBASE_SERVICE_ACCOUNT_KEY is not set or if Application Default Credentials (ADC) are not available in this environment.", e);
     // Log the full error for better debugging, especially for credential issues.
     return null;
   }

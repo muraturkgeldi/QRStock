@@ -1,10 +1,11 @@
 import EditOrderClient from './EditOrderClient';
+import { use } from 'react';
 
 type PageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function EditOrderPage({ params }: PageProps) {
-  const orderId = params.id;
+  const { id: orderId } = await params;
   return <EditOrderClient orderId={orderId} />;
 }
