@@ -1,6 +1,6 @@
 // src/lib/admin.server.ts
 
-import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
+import { getApps, initializeApp, cert, App, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -9,7 +9,7 @@ let adminApp: App | null = null;
 function loadServiceAccount(): any {
   const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!envKey) {
-    console.warn('Firebase Admin SDK: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Server-side features requiring admin privileges will fail.');
+    // Return null instead of logging a warning here, as ADC is the preferred fallback.
     return null;
   }
   
@@ -38,24 +38,22 @@ function loadServiceAccount(): any {
 function initAdminApp(): App | null {
   if (adminApp) return adminApp;
 
-  // Do not initialize if another app already exists.
   if (getApps().length > 0) {
     adminApp = getApps()[0];
     return adminApp;
   }
   
   const serviceAccount = loadServiceAccount();
-  if (!serviceAccount) {
-    return null; // Don't initialize if service account is not available
-  }
 
   try {
     adminApp = initializeApp({
-      credential: cert(serviceAccount),
+      // Use cert if serviceAccount is available, otherwise fall back to ADC
+      credential: serviceAccount ? cert(serviceAccount) : applicationDefault(),
     });
     return adminApp;
   } catch(e: any) {
-    console.error("Firebase Admin SDK initialization failed:", e.message);
+    console.error("Firebase Admin SDK initialization failed:", e);
+    // Log the full error for better debugging, especially for credential issues.
     return null;
   }
 }
@@ -63,12 +61,17 @@ function initAdminApp(): App | null {
 // These functions will now return null if the Admin SDK is not properly initialized.
 export function adminAuth() {
   const app = initAdminApp();
-  if (!app) return null;
+  if (!app) {
+    // Throw an error if initialization fails, as auth operations are critical.
+    throw new Error("Firebase Admin Auth SDK is not initialized. Check server configuration.");
+  }
   return getAuth(app);
 }
 
 export function adminDb() {
   const app = initAdminApp();
-   if (!app) return null;
+   if (!app) {
+    throw new Error("Firebase Admin SDK is not initialized. Check your FIREBASE_SERVICE_ACCOUNT_KEY environment variable or application default credentials.");
+  }
   return getFirestore(app);
 }
