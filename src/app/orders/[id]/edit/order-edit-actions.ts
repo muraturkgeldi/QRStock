@@ -1,6 +1,6 @@
 'use server';
 
-import admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { adminDb } from '@/lib/admin.server';
 
@@ -26,7 +26,7 @@ export async function updateOrderItemsAction(
 
   await ref.update({
     items,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   // Liste + detay sayfası yeniden çekilsin
