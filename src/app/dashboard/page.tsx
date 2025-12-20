@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useMemo } from 'react';
@@ -223,7 +224,7 @@ function DesktopDashboard() {
               return (
                  <Link
                   key={item.label}
-                  href={item.href}
+                  href={`${item.href}?from=/dashboard`}
                   className={cn(
                      'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
                     'text-muted-foreground',
@@ -262,13 +263,13 @@ function DesktopDashboard() {
                 asChild
                 variant="outline"
               >
-                <Link href="/scan">
+                <Link href="/scan?from=/dashboard">
                   <QrCode className="h-4 w-4 mr-1" />
                   Hızlı Tara
                 </Link>
               </Button>
               <Button asChild>
-                <Link href="/orders/create">
+                <Link href="/orders/create?from=/dashboard">
                   <ShoppingCart className="h-4 w-4 mr-1" />
                   Sipariş Oluştur
                 </Link>
@@ -393,7 +394,7 @@ function DesktopDashboard() {
                     thumb={p.imageUrl}
                     status={p.isOutOfStock ? 'out' : 'low'}
                     statusLabel={p.isOutOfStock ? 'Tükendi' : 'Düşük'}
-                    href={`/product/${p.id}`}
+                    href={`/product/${p.id}?from=/dashboard`}
                     chevron
                     className="
                       hover:ring-2 hover:ring-emerald-300 hover:bg-emerald-50
@@ -438,7 +439,7 @@ function MobileDashboard() {
               size="lg"
               className="w-full h-14 rounded-full flex items-center justify-center gap-2 text-base bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Link href="/scan">
+              <Link href="/scan?from=/dashboard">
                 <QrCode className="h-5 w-5" />
                 Hemen Tara
               </Link>
@@ -453,7 +454,7 @@ function MobileDashboard() {
             variant="outline"
             className="h-24 rounded-2xl flex flex-col items-start justify-center px-3"
           >
-            <Link href="/stock">
+            <Link href="/stock?from=/dashboard">
               <div className="flex items-center gap-2">
                 <Boxes className="h-5 w-5" />
                 <span className="font-semibold text-sm">Stoklar</span>
@@ -469,7 +470,7 @@ function MobileDashboard() {
             variant="outline"
             className="h-24 rounded-2xl flex flex-col items-start justify-center px-3"
           >
-            <Link href="/products">
+            <Link href="/products?from=/dashboard">
               <div className="flex items-center gap-2">
                 <Package2 className="h-5 w-5" />
                 <span className="font-semibold text-sm">Ürünler</span>
@@ -485,7 +486,7 @@ function MobileDashboard() {
             variant="outline"
             className="h-24 rounded-2xl flex flex-col items-start justify-center px-3"
           >
-            <Link href="/locations">
+            <Link href="/locations?from=/dashboard">
               <div className="flex items-center gap-2">
                 <Warehouse className="h-5 w-5" />
                 <span className="font-semibold text-sm">Depolar</span>
@@ -501,7 +502,7 @@ function MobileDashboard() {
             variant="outline"
             className="h-24 rounded-2xl flex flex-col items-start justify-center px-3"
           >
-            <Link href="/history">
+            <Link href="/history?from=/dashboard">
               <div className="flex items-center gap-2">
                 <ListOrdered className="h-5 w-5" />
                 <span className="font-semibold text-sm">Hareketler</span>
@@ -519,7 +520,7 @@ function MobileDashboard() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold">Son hareketler</span>
               <Link
-                href="/history"
+                href="/history?from=/dashboard"
                 className="text-xs text-primary underline-offset-2 hover:underline"
               >
                 Tümünü gör
@@ -552,5 +553,3 @@ export default function DashboardPage() {
     </Suspense>
   );
 }
-
-    
