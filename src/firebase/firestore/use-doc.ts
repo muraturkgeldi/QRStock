@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,20 +8,19 @@ import {
   DocumentData,
   FirestoreError,
 } from 'firebase/firestore';
-import { useFirestore } from '../provider';
+import { db } from '@/lib/firebase.client'; // DOĞRU: Merkezi istemci db'sini kullan
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 export function useDoc<T>(path: string) {
-  const firestore = useFirestore();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!db) return;
 
-    const docRef = doc(firestore, path);
+    const docRef = doc(db, path);
 
     const unsubscribe = onSnapshot(
       docRef,
@@ -44,7 +44,7 @@ export function useDoc<T>(path: string) {
     );
 
     return () => unsubscribe();
-  }, [firestore, path]);
+  }, [path]);
 
   return { data, loading, error };
 }

@@ -13,7 +13,7 @@ import {
   FirestoreError,
   Timestamp,
 } from 'firebase/firestore';
-import { useFirestore } from '../provider';
+import { db } from '@/lib/firebase.client'; // DOĞRU: Merkezi istemci db'sini kullan
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
@@ -22,20 +22,19 @@ import { FirestorePermissionError } from '../errors';
 // path is the path to the collection.
 // The uid filter has been temporarily removed to show all data.
 export function useCollection<T>(path: string, uid?: string | null) {
-  const firestore = useFirestore();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
   useEffect(() => {
     // If we don't have a firestore instance, don't do anything.
-    if (!firestore) {
+    if (!db) {
         setLoading(false);
         return;
     };
     
     // The reference to the collection.
-    const colRef = collection(firestore, path);
+    const colRef = collection(db, path);
     
     // TEMPORARY FIX: Fetch all documents in the collection without filtering by uid.
     // This allows seeing all data, even legacy data without a `uid` field.
@@ -73,7 +72,7 @@ export function useCollection<T>(path: string, uid?: string | null) {
 
     // Unsubscribe from the snapshot listener when the component unmounts.
     return () => unsubscribe();
-  }, [firestore, path]); // uid is removed from dependencies
+  }, [path]); // uid is removed from dependencies
 
   return { data, loading, error };
 }
