@@ -1,5 +1,15 @@
 // src/lib/admin.server.ts
 
+// HARD SAFETY: ignore invalid injected credential paths from stale caches or misconfigurations
+if (
+  process.env.GOOGLE_APPLICATION_CREDENTIALS &&
+  process.env.GOOGLE_APPLICATION_CREDENTIALS.includes('account_key.json')
+) {
+  console.warn('Firebase Admin: Unsetting problematic GOOGLE_APPLICATION_CREDENTIALS pointing to account_key.json.');
+  delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+}
+
+
 import { getApps, initializeApp, cert, App, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -52,7 +62,7 @@ function initAdminApp(): App | null {
     });
     return adminApp;
   } catch(e: any) {
-    console.error("Firebase Admin SDK initialization failed. This can happen if FIREBASE_SERVICE_ACCOUNT_KEY is not set or if Application Default Credentials (ADC) are not available in this environment.", e);
+    console.error("Firebase Admin SDK initialization failed. This can happen if FIREBASE_SERVICE_ACCOUNT_KEY is not set or if Application Default Credentials (ADC) are not available in this environment. Check both FIREBASE_SERVICE_ACCOUNT_KEY and GOOGLE_APPLICATION_CREDENTIALS environment variables.", e);
     // Log the full error for better debugging, especially for credential issues.
     return null;
   }
