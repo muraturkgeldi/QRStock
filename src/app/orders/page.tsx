@@ -4,14 +4,12 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PageHeader } from '@/components/PageHeader';
+import { withFrom } from '@/lib/nav';
 
-import TopBar from '@/components/ui/TopBar';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
 } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,8 +21,8 @@ import type { PurchaseOrder } from '@/lib/types';
 import {
   ShoppingCart,
   Search,
-  Package,
   CheckCircle2,
+  FileUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { archiveOrderAction, hardDeleteOrderAction } from './[id]/order-actions';
@@ -113,7 +111,6 @@ export default function OrdersPage() {
   const filtered = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
-    // 1) Arşivlenmişleri listeden çıkar
     let list = [...orders]
       .filter((o) => o.status !== 'archived')
       .sort((a, b) => {
@@ -128,25 +125,21 @@ export default function OrdersPage() {
         return db.getTime() - da.getTime();
       });
 
-    // 2) DURUM FİLTRESİ (Tümü / Ordered / Partially / Received / Cancelled)
     if (statusFilter !== 'all') {
       list = list.filter((o) => o.status === statusFilter);
     }
 
-    // 3) ARAMA FİLTRESİ (sipariş no + ürün adı + stok kodu)
     if (!searchTerm) return list;
 
     const q = searchTerm.toLowerCase();
 
     return list.filter((order) => {
       const orderNumberMatch = order.orderNumber?.toLowerCase().includes(q);
-
       const anyItemMatch = (order.items || []).some((it: any) => {
         const n = it.productName?.toLowerCase() || '';
         const s = it.productSku?.toLowerCase() || '';
         return n.includes(q) || s.includes(q);
       });
-
       return orderNumberMatch || anyItemMatch;
     });
   }, [orders, searchTerm, statusFilter]);
@@ -161,206 +154,133 @@ export default function OrdersPage() {
     });
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col min-h-dvh bg-app-bg">
-        <TopBar title="Siparişler" />
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          Siparişler yükleniyor...
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex flex-col min-h-dvh bg-app-bg">
-        <TopBar title="Siparişler" />
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          Siparişleri görmek için giriş yapmalısınız.
-        </div>
-      </div>
-    );
-  }
+  const headerActions = (
+    <div className="flex items-center gap-2">
+        <Button asChild size="sm" variant="outline">
+            <Link href={withFrom('/orders/import', '/orders')}>
+                <FileUp className="mr-2 h-4 w-4" />
+                İçe Aktar
+            </Link>
+        </Button>
+        <Button asChild size="sm">
+            <Link href={withFrom('/orders/create', '/orders')}>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Yeni Sipariş
+            </Link>
+        </Button>
+    </div>
+  );
 
   return (
     <div className="flex flex-col min-h-dvh bg-app-bg">
-      <TopBar title="Siparişler" />
-      <div className="p-4 space-y-4">
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
-                  Satın Alma Siparişleri
-                </CardTitle>
-                <CardDescription>
-                  Oluşturduğunuz siparişleri görüntüleyin, durumlarını takip
-                  edin.
-                </CardDescription>
-              </div>
-              <Button asChild size="sm" className="md:px-4 md:py-2">
-                <Link href="/orders/create">
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Yeni Sipariş Oluştur
-                </Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative max-w-xl">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Sipariş numarası, ürün adı veya stok kodu ile ara..."
-                className="w-full pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-xs pt-1">
-              {[
-                { key: 'all', label: 'Tümü' },
-                { key: 'ordered', label: 'Sipariş Verildi' },
-                { key: 'partially-received', label: 'Kısmi Teslim' },
-                { key: 'received', label: 'Tamamlandı' },
-                { key: 'cancelled', label: 'İptal' },
-              ].map((opt) => (
-                <Button
-                  key={opt.key}
-                  type="button"
-                  size="sm"
-                  variant={statusFilter === opt.key ? 'default' : 'outline'}
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => setStatusFilter(opt.key as StatusFilter)}
-                >
-                  {opt.label}
-                </Button>
-              ))}
-            </div>
-
-
-            {/* Mobil görünüm: kart kart */}
-            <div className="space-y-3 md:hidden">
-              {filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {searchTerm
-                    ? 'Aramanıza uygun sipariş bulunamadı.'
-                    : 'Henüz sipariş oluşturulmamış.'}
-                </p>
-              ) : (
-                filtered.map((order) => {
-                  const itemCount = order.items?.length ?? 0;
-                  const dateLabel = formatDate(order.orderDate);
-
-                  return (
-                    <Card
-                      key={order.id}
-                      className="text-left border bg-card hover:bg-accent/50 transition-colors p-3 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2" onClick={() => router.push(`/orders/${order.id}`)}>
-                        <div className="flex items-center gap-2">
-                          <Package className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-semibold text-sm">
-                            {order.orderNumber || order.id}
-                          </span>
-                        </div>
-                        <StatusBadge status={order.status} />
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground" onClick={() => router.push(`/orders/${order.id}`)}>
-                        <span>{dateLabel}</span>
-                        <span>{itemCount} kalem ürün</span>
-                      </div>
-                       <div className="flex items-center justify-end gap-2 pt-2 border-t mt-2">
-                            <form action={archiveOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Arşivlendi' })}>
-                                <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-[11px] border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
-                                    Arşivle
-                                </button>
-                            </form>
-                            <form action={hardDeleteOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Kalıcı Olarak Silindi' })}>
-                                <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-[11px] border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
-                                    Sil
-                                </button>
-                            </form>
-                        </div>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Masaüstü görünüm: tablo */}
-            <div className="hidden md:block">
-              {filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {searchTerm
-                    ? 'Aramanıza uygun sipariş bulunamadı.'
-                    : 'Henüz sipariş oluşturulmamış.'}
-                </p>
-              ) : (
-                <div className="overflow-x-auto border rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/60">
-                      <tr className="text-left">
-                        <th className="px-4 py-2">Sipariş No</th>
-                        <th className="px-4 py-2">Durum</th>
-                        <th className="px-4 py-2">Tarih</th>
-                        <th className="px-4 py-2">Ürün Adedi</th>
-                        <th className="px-4 py-2 text-right">İşlem</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((order) => {
-                        const itemCount = order.items?.length ?? 0;
-                        const dateLabel = formatDate(order.orderDate);
-                        return (
-                          <tr
-                            key={order.id}
-                            className="border-t hover:bg-accent/40 transition-colors"
-                          >
-                            <td className="px-4 py-2 align-middle font-medium">
-                              {order.orderNumber || order.id}
-                            </td>
-                            <td className="px-4 py-2 align-middle">
-                              <StatusBadge status={order.status} />
-                            </td>
-                            <td className="px-4 py-2 align-middle">
-                              {dateLabel}
-                            </td>
-                            <td className="px-4 py-2 align-middle">
-                              {itemCount}
-                            </td>
-                            <td className="px-4 py-2 align-middle text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => router.push(`/orders/${order.id}`)}>
-                                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                                    Detay
-                                  </Button>
-                                    <form action={archiveOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Arşivlendi' })}>
-                                        <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-xs border border-amber-400/70 bg-amber-50 hover:bg-amber-100 text-amber-800">
-                                            Arşivle
-                                        </button>
-                                    </form>
-                                    <form action={hardDeleteOrderAction.bind(null, order.id)} onSubmit={() => toast({ title: 'Sipariş Kalıcı Olarak Silindi' })}>
-                                        <button type="submit" className="inline-flex items-center px-2 py-1 rounded text-xs border border-red-500/70 bg-red-50 hover:bg-red-100 text-red-700">
-                                            Sil
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+        <PageHeader title="Satın Alma Siparişleri" fallback="/dashboard" right={headerActions} />
+        <div className="p-4 pt-0 space-y-4">
+            <Card>
+            <CardContent className="pt-6 space-y-4">
+                <div className="relative max-w-xl">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Sipariş numarası, ürün adı veya stok kodu ile ara..."
+                    className="w-full pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <div className="flex flex-wrap gap-2 text-xs pt-1">
+                {[
+                    { key: 'all', label: 'Tümü' },
+                    { key: 'ordered', label: 'Sipariş Verildi' },
+                    { key: 'partially-received', label: 'Kısmi Teslim' },
+                    { key: 'received', label: 'Tamamlandı' },
+                    { key: 'cancelled', label: 'İptal' },
+                ].map((opt) => (
+                    <Button
+                    key={opt.key}
+                    type="button"
+                    size="sm"
+                    variant={statusFilter === opt.key ? 'default' : 'outline'}
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => setStatusFilter(opt.key as StatusFilter)}
+                    >
+                    {opt.label}
+                    </Button>
+                ))}
+                </div>
+                
+                {isLoading && (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                        Siparişler yükleniyor...
+                    </div>
+                )}
+                
+                {!isLoading && (
+                  <>
+                    <div className="hidden md:block">
+                      {filtered.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          {searchTerm || statusFilter !== 'all'
+                            ? 'Aramanıza uygun sipariş bulunamadı.'
+                            : 'Henüz sipariş oluşturulmamış.'}
+                        </p>
+                      ) : (
+                        <div className="overflow-x-auto border rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/60">
+                              <tr className="text-left">
+                                <th className="px-4 py-2">Sipariş No</th>
+                                <th className="px-4 py-2">Durum</th>
+                                <th className="px-4 py-2">Tarih</th>
+                                <th className="px-4 py-2">Ürün Adedi</th>
+                                <th className="px-4 py-2 text-right">İşlem</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filtered.map((order) => {
+                                const itemCount = order.items?.length ?? 0;
+                                const dateLabel = formatDate(order.orderDate);
+                                return (
+                                  <tr
+                                    key={order.id}
+                                    className="border-t hover:bg-accent/40 transition-colors"
+                                  >
+                                    <td className="px-4 py-2 align-middle font-medium">
+                                      <Link href={withFrom(`/orders/${order.id}`, '/orders')} className="hover:underline">
+                                        {order.orderNumber || order.id}
+                                      </Link>
+                                    </td>
+                                    <td className="px-4 py-2 align-middle">
+                                      <StatusBadge status={order.status} />
+                                    </td>
+                                    <td className="px-4 py-2 align-middle">
+                                      {dateLabel}
+                                    </td>
+                                    <td className="px-4 py-2 align-middle">
+                                      {itemCount}
+                                    </td>
+                                    <td className="px-4 py-2 align-middle text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                        <Button asChild size="sm" variant="outline">
+                                           <Link href={withFrom(`/orders/${order.id}`, '/orders')}>
+                                                <CheckCircle2 className="w-4 h-4 mr-1" />
+                                                Detay
+                                            </Link>
+                                        </Button>
+                                        </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+            </CardContent>
+            </Card>
+        </div>
     </div>
   );
 }
