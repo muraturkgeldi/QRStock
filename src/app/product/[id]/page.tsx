@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useFirestore } from '@/firebase/provider';
 import {
   collection,
@@ -12,9 +12,9 @@ import {
   getDoc,
 } from 'firebase/firestore';
 
-import TopBar from '@/components/ui/TopBar';
+import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { Plus, Pencil, ArrowRightLeft, Warehouse, DoorClosed, Archive } from 'lu
 import type { Product, StockItem, Location } from '@/lib/types';
 import { useCollection } from '@/firebase';
 import { cn } from '@/lib/utils';
+import { withFrom } from '@/lib/nav';
 
 // ----------------- Küçük yardımcı bileşenler -----------------
 
@@ -140,18 +141,17 @@ function StockByLocation({
 
 // ----------------- Asıl sayfa -----------------
 
-export default function ProductDetailPage() {
+function ProductDetailContent() {
   const firestore = useFirestore();
   const params = useParams<{ id: string }>();
+  const pathname = usePathname();
   const [product, setProduct] = useState<Product | null>(null);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // locations artık uid'e göre filtrelenmiyor
   const { data: locations, loading: locationsLoading } =
     useCollection<Location>('locations');
 
-  // /product/[id] → bu id stok kodu / barkod / docId olabilir
   const rawId = (params?.id ?? '') as string;
 
   useEffect(() => {
@@ -161,45 +161,35 @@ export default function ProductDetailPage() {
       setLoading(true);
       try {
         let productData: Product | null = null;
-
-        // 1) Önce doküman ID'si olarak dene: products/{rawId}
-        try {
-          const byIdRef = doc(firestore, 'products', rawId);
-          const byIdSnap = await getDoc(byIdRef);
-          if (byIdSnap.exists()) {
-            productData = { id: byIdSnap.id, ...(byIdSnap.data() as any) };
-          }
-        } catch {
-          // geç
-        }
-
-        // 2) ID ile bulunamadıysa stok kodu (sku) olarak ara
-        if (!productData) {
-          const skuQuery = query(
-            collection(firestore, 'products'),
-            where('sku', '==', rawId),
-            limit(1)
-          );
-          const skuSnap = await getDocs(skuQuery);
-          if (!skuSnap.empty) {
-            const docSnap = skuSnap.docs[0];
-            productData = { id: docSnap.id, ...(docSnap.data() as any) };
-          }
+        
+        const byIdRef = doc(firestore, 'products', rawId);
+        const byIdSnap = await getDoc(byIdRef);
+        if (byIdSnap.exists()) {
+          productData = { id: byIdSnap.id, ...(byIdSnap.data() as any) };
+        } else {
+            const skuQuery = query(
+              collection(firestore, 'products'),
+              where('sku', '==', rawId),
+              limit(1)
+            );
+            const skuSnap = await getDocs(skuQuery);
+            if (!skuSnap.empty) {
+              const docSnap = skuSnap.docs[0];
+              productData = { id: docSnap.id, ...(docSnap.data() as any) };
+            }
         }
 
         setProduct(productData);
 
-        // 3) Stok verilerini çek
         if (productData) {
           const stockQ = query(
             collection(firestore, 'stockItems'),
-            where('productId', '==', productData.id)
-            // quantity > 0 şartını kaldırdık, index istemesin
+            where('productId', '==', productData.id),
+            where('quantity', '>', 0)
           );
           const stockSnap = await getDocs(stockQ);
           const items = stockSnap.docs
-            .map((d) => ({ id: d.id, ...(d.data() as any) } as StockItem))
-            .filter((item) => (item.quantity ?? 0) > 0); // 🔥 quantity > 0 filtresi artık client tarafında
+            .map((d) => ({ id: d.id, ...(d.data() as any) } as StockItem));
 
           setStockItems(items);
         } else {
@@ -226,49 +216,30 @@ export default function ProductDetailPage() {
       return {
         label: '...',
         variant: 'secondary' as const,
-        isOutOfStock: false,
-        isLowStock: false,
       };
     const isOutOfStock = totalStock <= 0;
     const minStock = (product as any).minStockLevel || 0;
     const isLowStock =
       !isOutOfStock && minStock > 0 && totalStock < minStock;
-    if (isOutOfStock)
-      return {
-        label: 'Tükendi',
-        variant: 'danger' as const,
-        isOutOfStock: true,
-        isLowStock: false,
-      };
-    if (isLowStock)
-      return {
-        label: 'Düşük Stok',
-        variant: 'warn' as const,
-        isOutOfStock: false,
-        isLowStock: true,
-      };
-    return {
-      label: 'Yeterli Stok',
-      variant: 'success' as const,
-      isOutOfStock: false,
-      isLowStock: false,
-    };
+    if (isOutOfStock) return { label: 'Tükendi', variant: 'destructive' as const };
+    if (isLowStock) return { label: 'Düşük Stok', variant: 'outline' as const };
+    return { label: 'Yeterli Stok', variant: 'default' as const };
   }, [product, totalStock]);
 
   if (loading || locationsLoading) {
     return (
-      <div className="flex flex-col min-h-dvh bg-app-bg">
-        <TopBar title="Ürün Detayı" />
-        <div className="p-4 text-center">Yükleniyor...</div>
+      <div className="p-4">
+        <PageHeader title="Yükleniyor..." fallback="/products" />
+        <div className="text-center py-10">Ürün detayı yükleniyor...</div>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="flex flex-col min-h-dvh bg-app-bg">
-        <TopBar title="Ürün bulunamadı" />
-        <div className="p-4 text-center">
+      <div className="p-4">
+         <PageHeader title="Bulunamadı" fallback="/products" />
+        <div className="text-center py-10">
           Bu kodla eşleşen bir ürün bulunamadı:{' '}
           <strong>{rawId}</strong>
         </div>
@@ -276,9 +247,29 @@ export default function ProductDetailPage() {
     );
   }
 
+  const headerActions = (
+    <>
+      <Button asChild variant="outline" size="sm">
+        <Link href={withFrom(`/product/${product.id}/edit`, pathname)}>
+          <Pencil className="mr-2 h-4 w-4" /> Düzenle
+        </Link>
+      </Button>
+       <Button asChild variant="outline" size="sm">
+        <Link href={withFrom(`/product/${product.id}/transfer`, pathname)}>
+            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
+        </Link>
+      </Button>
+      <Button asChild size="sm">
+        <Link href={withFrom(`/product/${product.id}/update`, pathname)}>
+            <Plus className="mr-2 h-4 w-4" /> Ekle/Çıkar
+        </Link>
+      </Button>
+    </>
+  );
+
   return (
-    <div className="flex flex-col min-h-dvh bg-app-bg">
-      <TopBar title={product.name} />
+    <>
+      <PageHeader title={product.name} fallback="/products" right={headerActions}/>
       <div className="flex-1">
         {product.imageUrl && (
           <Image
@@ -297,25 +288,16 @@ export default function ProductDetailPage() {
               <h1 className="text-2xl font-bold text-text">
                 {product.name}
               </h1>
-              <Badge
-                variant={status.variant}
-              >
+              <Badge variant={status.variant}>
                 {status.label}
               </Badge>
             </div>
              {product.tags?.length ? (
               <div className="flex flex-wrap gap-2 mt-2">
                 {product.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="
-                      inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium
-                      border-emerald-200 bg-emerald-50 text-emerald-700
-                      dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-100
-                    "
-                  >
+                  <Badge key={tag} variant="secondary">
                     #{tag}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             ) : null}
@@ -349,23 +331,15 @@ export default function ProductDetailPage() {
           <StockByLocation items={stockItems} locations={locations} />
         </div>
       </div>
-      <div className="p-4 grid grid-cols-3 gap-2 sticky bottom-0 bg-gradient-to-t from-app-bg to-transparent">
-        <Button asChild variant="outline" size="lg">
-          <Link href={`/product/${product.id}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" /> Düzenle
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="lg">
-          <Link href={`/product/${product.id}/transfer`}>
-            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
-          </Link>
-        </Button>
-        <Button asChild size="lg">
-          <Link href={`/product/${product.id}/update`}>
-            <Plus className="mr-2 h-4 w-4" /> Ekle/Çıkar
-          </Link>
-        </Button>
-      </div>
-    </div>
+    </>
   );
+}
+
+
+export default function ProductDetailPage() {
+    return (
+        <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+            <ProductDetailContent />
+        </Suspense>
+    )
 }

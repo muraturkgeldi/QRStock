@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/types';
 import { X } from 'lucide-react';
 import { useDoc, useUser } from '@/firebase';
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, Suspense } from 'react';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore } from '@/firebase/provider';
@@ -20,7 +20,6 @@ import { safeFrom } from '@/lib/nav';
 function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSaveSuccess: () => void }) {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user, loading: userLoading } = useUser();
   const { data: product, loading: productLoading } = useDoc<Product>(`products/${productId}`);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,14 +87,12 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
         title: 'Hata',
         description: error?.message || 'Ürün güncellenirken bir hata oluştu.',
       });
-    } finally {
       setIsSubmitting(false);
     }
   }
 
-  const isLoading = userLoading || productLoading;
 
-  if (isLoading) {
+  if (productLoading) {
     return <div className="p-4 text-center">Yükleniyor...</div>;
   }
 
@@ -105,6 +102,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
 
   return (
     <>
+      <PageHeader title="Ürünü Düzenle" fallback={`/product/${productId}`} />
       <Card>
         <CardHeader>
           <CardTitle>Ürün Detayları</CardTitle>
@@ -131,7 +129,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
             <Input id="tags-input" placeholder="Yeni etiket ekle..." value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown} disabled={isSubmitting} />
             <div className="flex gap-2 flex-wrap pt-2">
               {tags.map(tag => (
-                <Badge key={tag} variant="outline" className="flex items-center gap-1">
+                <Badge key={tag} variant="secondary" className="flex items-center gap-1">
                   {tag}
                   <button type="button" onClick={() => removeTag(tag)} className="ml-1 rounded-full hover:bg-destructive/20 p-0.5">
                     <X className="w-3 h-3" />
@@ -157,7 +155,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
   );
 }
 
-export default function Page({ params }: { params: { id: string } }) {
+function PageContent({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
   const sp = useSearchParams();
@@ -165,12 +163,20 @@ export default function Page({ params }: { params: { id: string } }) {
   const handleSuccess = () => {
      const backTo = safeFrom(sp.get("from"), `/product/${id}`);
      router.push(backTo);
+     router.refresh();
   }
 
   return (
     <div className="p-4">
-        <PageHeader title="Ürünü Düzenle" fallback={`/product/${id}`} />
         <ProductEditForm productId={id} onSaveSuccess={handleSuccess} />
     </div>
   );
+}
+
+export default function Page({ params }: { params: { id: string } }) {
+    return (
+        <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+            <PageContent params={params} />
+        </Suspense>
+    )
 }
