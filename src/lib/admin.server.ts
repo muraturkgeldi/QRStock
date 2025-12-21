@@ -1,8 +1,7 @@
-
 // src/lib/admin.server.ts
-import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getApps, initializeApp, cert, App } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 
 let adminApp: App | null = null;
 
@@ -29,6 +28,11 @@ function initAdminApp(): App {
   if (adminApp) return adminApp;
   if (getApps().length) return (adminApp = getApps()[0]);
 
+  // 🔥 ADC/metadata/file-path yolunu tamamen kapat
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
+
   const serviceAccount = loadServiceAccount();
   if (!serviceAccount) {
     throw new Error(
@@ -36,7 +40,10 @@ function initAdminApp(): App {
     );
   }
 
-  adminApp = initializeApp({ credential: cert(serviceAccount) });
+  adminApp = initializeApp({ 
+    credential: cert(serviceAccount),
+    projectId: serviceAccount.project_id,
+  });
   return adminApp;
 }
 
@@ -51,5 +58,3 @@ export function adminDb() {
   if (!app) throw new Error('Firebase Admin DB not initialized');
   return getFirestore(app);
 }
-
-    
