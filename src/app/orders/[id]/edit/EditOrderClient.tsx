@@ -1,23 +1,13 @@
-
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useRouter, notFound } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-import { useUser, useDoc, useCollection } from '@/firebase';
-import type { PurchaseOrder, PurchaseOrderItem, Product } from '@/lib/types';
-
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/Card';
+import type { PurchaseOrderItem, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Save, PlusCircle, Search } from 'lucide-react';
+import { Trash2, PlusCircle, Search } from 'lucide-react';
 import Image from 'next/image';
 import {
   Dialog,
@@ -30,10 +20,14 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { updateOrderItemsClient } from "@/lib/orders.client";
-
+import { PageHeader } from '@/components/PageHeader';
+import { EditActionBar } from '@/components/EditActionBar';
+import { safeFrom } from '@/lib/nav';
 
 type EditOrderClientProps = {
   orderId: string;
+  initialItems: EditableItem[];
+  allProducts: Product[];
 };
 
 type EditableItem = PurchaseOrderItem & { _deleted?: boolean };
@@ -127,25 +121,14 @@ function AddProductDialog({
     );
 }
 
-export default function EditOrderClient({ orderId }: EditOrderClientProps) {
+export default function EditOrderClient({ orderId, initialItems, allProducts }: EditOrderClientProps) {
   const router = useRouter();
+  const sp = useSearchParams();
   const { toast } = useToast();
 
-  const { user, loading: userLoading } = useUser();
-  const { data: order, loading: orderLoading } = useDoc<PurchaseOrder>(`purchaseOrders/${orderId}`);
-  const { data: allProducts, loading: productsLoading } = useCollection<Product>('products', user?.uid);
-
-  const [items, setItems] = useState<EditableItem[]>([]);
+  const [items, setItems] = useState<EditableItem[]>(initialItems);
   const [saving, setSaving] = useState(false);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
-
-  useEffect(() => {
-    if (order?.items) {
-      setItems(order.items.map((it) => ({ ...it, _deleted: false, receivedQuantity: it.receivedQuantity || 0, remainingQuantity: it.remainingQuantity || it.quantity })));
-    }
-  }, [order]);
-
-  const isLoading = userLoading || orderLoading || productsLoading;
 
   const handleQtyChange = (index: number, value: string) => {
     const n = Number(String(value).replace(',', '.'));
@@ -191,9 +174,7 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
     setItems(prev => [...prev, ...newItems]);
   };
 
-  const handleSave = async () => {
-    if (!order || !user) return;
-
+  const onSave = async () => {
     const payload = items
       .filter((it) => !it._deleted && (it.quantity ?? 0) > 0)
       .map((clean) => {
@@ -221,12 +202,13 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
 
     setSaving(true);
     try {
-      await updateOrderItemsClient(order.id, payload);
+      await updateOrderItemsClient(orderId, payload);
       toast({
         title: 'Sipariş güncellendi',
         description: 'Değişiklikler kaydedildi.',
       });
-      router.push(`/orders/${order.id}`);
+      const backTo = safeFrom(sp.get("from"), `/orders/${orderId}`);
+      router.push(backTo);
     } catch (e: any) {
       console.error('UPDATE_ORDER_ITEMS_FAIL', e);
       toast({
@@ -234,39 +216,15 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
         title: 'Hata',
         description: e?.message || 'Değişiklikler kaydedilemedi.',
       });
-    } finally {
-      setSaving(false);
+       setSaving(false);
     }
   };
 
-  if (isLoading) {
-    return <div className="p-4">Sipariş yükleniyor...</div>;
-  }
-
-  if (!order) {
-    return notFound();
-  }
-
-  if (order.status === 'received' || order.status === 'cancelled' || order.status === 'archived') {
-    return (
-      <div className="flex flex-col">
-        <div className="p-4 text-center">Tamamlanmış, iptal edilmiş veya arşivlenmiş siparişler düzenlenemez.</div>
-      </div>
-    );
-  }
-
   return (
-    <main className="min-h-dvh bg-app-bg p-4 space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Sipariş Düzenle: #{order.orderNumber ?? orderId}
-          </CardTitle>
-          <CardDescription>
-            Miktarları değiştir, istemediğin ürünleri satırdan sil.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+    <div className="p-4">
+        <PageHeader title="Siparişi Düzenle" fallback={`/orders/${orderId}`} />
+
+        <div className="space-y-3">
           {items.map((item, idx) =>
             item._deleted ? null : (
               <div
@@ -275,18 +233,18 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="font-semibold text-sm">
+                    <p className="font-semibold text-sm">
                       {item.productName}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
+                    </p>
+                    <p className="text-xs text-muted-foreground">
                       {item.productSku}
-                    </div>
+                    </p>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 w-8"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
                     onClick={() => handleRemoveLine(idx)}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -325,20 +283,13 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Yeni Ürün Ekle
             </Button>
-        </CardContent>
-      </Card>
+        </div>
       
-      <div className="sticky bottom-4 pb-4">
-        <Button
-            size="lg"
-            className="w-full"
-            onClick={handleSave}
-            disabled={saving || isLoading}
-        >
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
-        </Button>
-      </div>
+        <EditActionBar
+            fallback={`/orders/${orderId}`}
+            onSave={onSave}
+            saving={saving}
+        />
       
       <AddProductDialog 
         allProducts={allProducts || []}
@@ -347,6 +298,6 @@ export default function EditOrderClient({ orderId }: EditOrderClientProps) {
         isOpen={isAddProductDialogOpen}
         onOpenChange={setIsAddProductDialogOpen}
       />
-    </main>
+    </div>
   );
 }
