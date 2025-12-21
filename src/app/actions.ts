@@ -10,7 +10,7 @@ import {
     transferStockInDB,
     batchAddLocations,
     batchAddProducts,
-    getMailingList,
+    getMailingList as getMailingListFromDB,
     addEmailToMailingListInDB,
     removeEmailFromMailingListInDB,
     batchUpdateSkus,
@@ -65,7 +65,7 @@ export async function sendLowStockEmail(
 ) {
     const uid = await getUidFromSession();
     try {
-        const mailingList = await getMailingList(uid);
+        const mailingList = await getMailingListFromDB(uid);
         
         if (!mailingList || mailingList.length === 0) {
             console.warn(`No mailing list for user ${uid}. Skipping email.`);
@@ -597,8 +597,6 @@ export async function updatePurchaseOrder(formData: FormData) {
 
 
 export async function receivePurchaseOrderItem(formData: FormData) {
-  console.log("FIREBASE_SERVICE_ACCOUNT_KEY exists?", !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-  console.log("FIREBASE_SERVICE_ACCOUNT_KEY len:", process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.length ?? 0);
   const db = adminDb(); // ✅ admin firestore
   const uid = await getUidFromSession();
   const user = await adminAuth().getUser(uid);
@@ -819,5 +817,5 @@ async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin
         return { isAdmin: false, uid: null };
     }
 }
-
+    
     
