@@ -1,6 +1,6 @@
 # QRStock Route Map
 
-Toplam: 28
+Toplam: 33
 
 - `/`
 - `/app`
