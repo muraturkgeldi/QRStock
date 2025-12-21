@@ -1,4 +1,3 @@
-
 'use client';
 
 import { notFound, useRouter, usePathname } from 'next/navigation';
