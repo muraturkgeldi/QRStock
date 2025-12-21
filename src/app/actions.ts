@@ -808,9 +808,3 @@ async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin
         return { isAdmin: false, uid: null };
     }
 }
-
-    
-
-    
-
-    
