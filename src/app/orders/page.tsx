@@ -23,9 +23,22 @@ import {
   Search,
   CheckCircle2,
   FileUp,
+  Archive,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { archiveOrderAction, hardDeleteOrderAction } from './[id]/order-actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 function formatDate(ts: any | undefined): string {
@@ -96,6 +109,7 @@ export default function OrdersPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading: userLoading } = useUser();
+  const isAdmin = user?.role === 'admin';
 
   const {
     data: orders,
@@ -266,6 +280,42 @@ export default function OrdersPage() {
                                                 Detay
                                             </Link>
                                         </Button>
+                                         <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                                                  <Archive className="w-4 h-4"/>
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Siparişi arşivle?</AlertDialogTitle>
+                                                    <AlertDialogDescription>Bu sipariş listeden kaldırılacak.</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => archiveOrderAction(order.id)}>Evet, Arşivle</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                        {isAdmin && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="text-destructive/80 hover:text-destructive">
+                                                        <Trash2 className="w-4 h-4"/>
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Siparişi kalıcı olarak sil?</AlertDialogTitle>
+                                                        <AlertDialogDescription>Bu işlem geri alınamaz.</AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                                                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => hardDeleteOrderAction(order.id)}>Evet, Kalıcı Sil</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
                                         </div>
                                     </td>
                                   </tr>
