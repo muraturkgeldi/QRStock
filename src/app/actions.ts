@@ -29,6 +29,7 @@ import { cookies } from 'next/headers';
 import * as jose from 'jose';
 import { auth } from '@/firebase'; // Keep client auth for user creation
 import { adminAuth, adminDb } from '@/lib/admin.server';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, runTransaction, getDoc, collectionGroup, writeBatch, where } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firestore.server';
@@ -596,87 +597,95 @@ export async function updatePurchaseOrder(formData: FormData) {
 
 
 export async function receivePurchaseOrderItem(formData: FormData) {
-    const db = getServerDb();
-    const uid = await getUidFromSession();
-    const user = await adminAuth().getUser(uid);
+  const db = adminDb(); // ✅ admin firestore
+  const uid = await getUidFromSession();
+  const user = await adminAuth().getUser(uid);
 
+  const orderId = formData.get('orderId') as string;
+  const productId = formData.get('productId') as string;
+  const receivedQuantity = Number(formData.get('receivedQuantity'));
+  const locationId = formData.get('locationId') as string;
 
-    const orderId = formData.get('orderId') as string;
-    const productId = formData.get('productId') as string;
-    const receivedQuantity = Number(formData.get('receivedQuantity'));
-    const locationId = formData.get('locationId') as string;
-    
-    if (!orderId || !productId || !receivedQuantity || !locationId) {
-        throw new Error("Eksik bilgi: Sipariş ID, Ürün ID, Miktar ve Lokasyon zorunludur.");
+  if (!orderId || !productId || !receivedQuantity || !locationId) {
+    throw new Error('Eksik bilgi: Sipariş ID, Ürün ID, Miktar ve Lokasyon zorunludur.');
+  }
+
+  const result = await db.runTransaction(async (tx) => {
+    const orderRef = db.collection('purchaseOrders').doc(orderId);
+    const orderSnap = await tx.get(orderRef);
+
+    if (!orderSnap.exists) {
+      throw new Error('Sipariş bulunamadı.');
     }
-    
-    const { newStatus, oldStatus, item } = await runTransaction(db, async (transaction) => {
-        const orderRef = doc(db, "purchaseOrders", orderId);
-        const orderSnap = await transaction.get(orderRef);
 
-        if (!orderSnap.exists() || orderSnap.data().uid !== uid) {
-            throw new Error("Sipariş bulunamadı veya bu işlem için yetkiniz yok.");
-        }
+    const order: any = orderSnap.data();
+    if (order.uid !== uid) {
+      throw new Error('Sipariş bulunamadı veya bu işlem için yetkiniz yok.');
+    }
 
-        const order: any = orderSnap.data();
-        const oldStatus = order.status;
-        const itemIndex = order.items.findIndex((item:any) => item.productId === productId);
+    const oldStatus = order.status;
+    const itemIndex = order.items.findIndex((it: any) => it.productId === productId);
+    if (itemIndex === -1) throw new Error('Sipariş içinde ürün bulunamadı.');
 
-        if (itemIndex === -1) {
-            throw new Error("Sipariş içinde ürün bulunamadı.");
-        }
+    const item = order.items[itemIndex];
 
-        const item = order.items[itemIndex];
-        
-        if (receivedQuantity > item.remainingQuantity) {
-            throw new Error(`Teslim alınan miktar (${receivedQuantity}), kalan miktardan (${item.remainingQuantity}) fazla olamaz.`);
-        }
+    if (receivedQuantity > Number(item.remainingQuantity || 0)) {
+      throw new Error(
+        `Teslim alınan miktar (${receivedQuantity}), kalan miktardan (${item.remainingQuantity}) fazla olamaz.`
+      );
+    }
 
-        const newReceived = item.receivedQuantity + receivedQuantity;
-        const newRemaining = item.quantity - newReceived;
-        
-        order.items[itemIndex].receivedQuantity = newReceived;
-        order.items[itemIndex].remainingQuantity = newRemaining;
+    const newReceived = Number(item.receivedQuantity || 0) + receivedQuantity;
+    const newRemaining = Number(item.quantity || 0) - newReceived;
 
-        const allItemsReceived = order.items.every((i:any) => i.remainingQuantity <= 0);
-        const someItemsReceived = order.items.some((i:any) => i.receivedQuantity > 0);
+    order.items[itemIndex].receivedQuantity = newReceived;
+    order.items[itemIndex].remainingQuantity = newRemaining;
 
-        let newStatus = order.status;
-        if (allItemsReceived) {
-            newStatus = 'received';
-        } else if (someItemsReceived) {
-            newStatus = 'partially-received';
-        }
+    const allItemsReceived = order.items.every((i: any) => Number(i.remainingQuantity || 0) <= 0);
+    const someItemsReceived = order.items.some((i: any) => Number(i.receivedQuantity || 0) > 0);
 
-        transaction.update(orderRef, { items: order.items, status: newStatus });
-        
-        const stockItemsRef = collection(db, 'stockItems');
-        const q = query(stockItemsRef, where('productId', '==', productId), where('locationId', '==', locationId), where('uid', '==', uid));
-        const stockSnapshot = await getDocs(q);
+    let newStatus = order.status;
+    if (allItemsReceived) newStatus = 'received';
+    else if (someItemsReceived) newStatus = 'partially-received';
 
-        if (stockSnapshot.empty) {
-            const newStockItemRef = doc(collection(db, 'stockItems'));
-            transaction.set(newStockItemRef, { productId, locationId, quantity: receivedQuantity, uid });
-        } else {
-            const stockItemDoc = stockSnapshot.docs[0];
-            const newQuantity = stockItemDoc.data().quantity + receivedQuantity;
-            transaction.update(stockItemDoc.ref, { quantity: newQuantity });
-        }
-        
-        const newMovementRef = doc(collection(db, 'stockMovements'));
-        transaction.set(newMovementRef, {
-            productId,
-            locationId,
-            type: 'in',
-            quantity: receivedQuantity,
-            date: serverTimestamp(),
-            uid,
-            userId: user.displayName || user.email || uid,
-            description: `Sipariş #${order.orderNumber} teslimatı`
-        });
+    // ✅ order update
+    tx.update(orderRef, { items: order.items, status: newStatus });
 
-        return { newStatus, oldStatus, item };
+    // ✅ stockItems upsert (uid + productId + locationId)
+    const stockQuery = db
+      .collection('stockItems')
+      .where('uid', '==', uid)
+      .where('productId', '==', productId)
+      .where('locationId', '==', locationId);
+
+    const stockSnap = await tx.get(stockQuery);
+
+    if (stockSnap.empty) {
+      const newStockRef = db.collection('stockItems').doc();
+      tx.set(newStockRef, { uid, productId, locationId, quantity: receivedQuantity });
+    } else {
+      const doc0 = stockSnap.docs[0];
+      const currentQty = Number(doc0.data().quantity || 0);
+      tx.update(doc0.ref, { quantity: currentQty + receivedQuantity });
+    }
+
+    // ✅ stockMovements insert
+    const moveRef = db.collection('stockMovements').doc();
+    tx.set(moveRef, {
+      uid,
+      productId,
+      locationId,
+      type: 'in',
+      quantity: receivedQuantity,
+      date: FieldValue.serverTimestamp(),
+      userId: user.displayName || user.email || uid,
+      description: `Sipariş #${order.orderNumber} teslimatı`,
     });
+
+    return { newStatus, oldStatus, item };
+  });
+
+  const { newStatus, oldStatus, item } = result;
 
     if (newStatus !== oldStatus) {
         await recordOrderEvent({
