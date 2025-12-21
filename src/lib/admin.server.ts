@@ -1,53 +1,42 @@
 // src/lib/admin.server.ts
-import { getApps, initializeApp, cert, App, applicationDefault } from 'firebase-admin/app';
+import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 let adminApp: App | null = null;
 
-function parseServiceAccount(envValue?: string) {
-  if (!envValue) return null;
+function loadServiceAccount(): any {
+  const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!envKey) return null;
 
   try {
-    // Ham JSON mu?
-    if (envValue.trim().startsWith('{')) {
-      const json = JSON.parse(envValue);
-      json.private_key = json.private_key?.replace(/\\n/g, '\n');
-      return json;
-    }
+    // base64 ise decode et
+    const raw = envKey.includes("{")
+      ? envKey
+      : Buffer.from(envKey, "base64").toString("utf-8");
 
-    // Base64 mü?
-    const decoded = Buffer.from(envValue, 'base64').toString('utf-8');
-    const json = JSON.parse(decoded);
-    json.private_key = json.private_key?.replace(/\\n/g, '\n');
-    return json;
-  } catch (err) {
-    console.error('[Firebase Admin] Service account parse failed:', err);
+    const parsed = JSON.parse(raw);
+    if (parsed.private_key) parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
+    return parsed;
+  } catch (e) {
+    console.error("FIREBASE_SERVICE_ACCOUNT_KEY parse edilemedi:", e);
     return null;
   }
 }
 
-function initAdminApp(): App | null {
+function initAdminApp(): App {
   if (adminApp) return adminApp;
-  if (getApps().length > 0) return (adminApp = getApps()[0]);
+  if (getApps().length) return (adminApp = getApps()[0]);
 
-  const serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-
-  try {
-    adminApp = initializeApp({
-      credential: serviceAccount
-        ? cert(serviceAccount)
-        : applicationDefault(), // Preview/Cloud fallback
-      projectId:
-        process.env.GCLOUD_PROJECT ||
-        process.env.FIREBASE_PROJECT_ID ||
-        undefined,
-    });
-    return adminApp;
-  } catch (e) {
-    console.error('[Firebase Admin] init failed:', e);
-    return null;
+  const serviceAccount = loadServiceAccount();
+  if (!serviceAccount) {
+    throw new Error(
+      "Firebase Admin başlatılamadı: FIREBASE_SERVICE_ACCOUNT_KEY eksik veya geçersiz. Lütfen Firebase Studio > Secrets paneline eklediğinizden emin olun."
+    );
   }
+
+  adminApp = initializeApp({ credential: cert(serviceAccount) });
+  return adminApp;
 }
 
 export function adminAuth() {
