@@ -1,3 +1,4 @@
+
 // src/lib/admin.server.ts
 import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -50,3 +51,5 @@ export function adminDb() {
   if (!app) throw new Error('Firebase Admin DB not initialized');
   return getFirestore(app);
 }
+
+    
