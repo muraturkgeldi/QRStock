@@ -35,7 +35,7 @@ export default function NewLocationPage() {
   const corridors = useMemo(() => locations.filter(l => l.type === 'corridor' && l.parentId === parentWarehouse), [locations, parentWarehouse]);
 
   const isSaveDisabled = () => {
-    if (isSubmitting || isLoading) return true;
+    if (isLoading) return true;
     if (locationType === 'corridor' && !parentWarehouse) return true;
     if (locationType === 'shelf' && !parentCorridor) return true;
     return false;
@@ -81,7 +81,7 @@ export default function NewLocationPage() {
         case 'shelf':
              return (
                 <>
-                    <Textarea id="name" name="name" placeholder="A-01-30&#10;B-01-15" required rows={5} disabled={isSubmitting} />
+                    <Textarea id="name" name="name" placeholder="A-01-30&#10;B-01-15" required rows={5} disabled={isSubmitting} />_
                     <p className="text-xs text-muted-foreground">Seri oluşturmak için `A-01-30` gibi bir kalıp veya her rafı yeni bir satıra yazın.</p>
                 </>
             );
@@ -161,6 +161,7 @@ export default function NewLocationPage() {
           fallback={safeFrom(searchParams.get('from'), '/locations')}
           onSave={handleSave}
           saving={isSubmitting}
+          disabled={isSaveDisabled()}
         />
       </div>
     </div>

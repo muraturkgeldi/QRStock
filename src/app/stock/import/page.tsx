@@ -76,9 +76,7 @@ export default function ImportProductsPage() {
 
     return (
         <div className="flex flex-col bg-app-bg min-h-dvh">
-            <div className="p-4">
-                 <PageHeader title="Excel'den Toplu Ürün Ekle" fallback={fallbackUrl} />
-            </div>
+            <PageHeader title="Excel'den Toplu Ürün Ekle" fallback={fallbackUrl} />
             <div className="p-4 pt-0 space-y-4">
                 <Alert>
                     <Info className="h-4 w-4" />

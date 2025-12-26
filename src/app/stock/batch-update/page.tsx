@@ -4,7 +4,7 @@
 import { Suspense } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useCollection, useUser } from '@/firebase';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -89,7 +89,12 @@ function BatchUpdateContent() {
     };
 
     if (isLoading) {
-        return <div className="p-4 text-center">Yükleniyor...</div>;
+        return (
+             <div className="flex flex-col bg-app-bg min-h-dvh">
+                <PageHeader title="Toplu Stok Güncelle" fallback={fallbackUrl} />
+                <div className="p-4 text-center">Yükleniyor...</div>
+            </div>
+        );
     }
     
     if (productIds.length === 0) {
@@ -98,8 +103,8 @@ function BatchUpdateContent() {
 
     return (
         <div className="flex flex-col bg-app-bg min-h-dvh">
+            <PageHeader title="Toplu Stok Güncelle" fallback={fallbackUrl} />
             <div className="p-4 space-y-4">
-                <PageHeader title="Toplu Stok Güncelle" fallback={fallbackUrl} />
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">

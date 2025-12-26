@@ -7,11 +7,13 @@ import { safeFrom } from "@/lib/nav";
 export function EditActionBar({
   fallback,
   onSave,
-  saving,
+  saving = false,
+  disabled = false,
 }: {
   fallback: string;
   onSave: () => Promise<void>;
   saving?: boolean;
+  disabled?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -20,10 +22,10 @@ export function EditActionBar({
   return (
     <div className="mt-6 flex justify-end">
       <div className="inline-flex items-center gap-2">
-        <Button variant="secondary" onClick={() => router.push(backTo)} disabled={saving}>
+        <Button variant="secondary" onClick={() => router.push(backTo)} disabled={saving || disabled}>
           İptal
         </Button>
-        <Button onClick={onSave} disabled={saving}>
+        <Button onClick={onSave} disabled={saving || disabled}>
           {saving ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
