@@ -24,7 +24,7 @@ export function EditActionBar({
       <Button
         variant="secondary"
         onClick={() => router.push(backTo)}
-        disabled={saving || disabled}
+        disabled={saving}
       >
         İptal
       </Button>
