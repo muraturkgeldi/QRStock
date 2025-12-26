@@ -1,10 +1,11 @@
 
+'use client';
 
-'use server';
-
-import { getProductById, getLocations } from '@/lib/data';
-import { notFound } from 'next/navigation';
-import TopBar from '@/components/ui/TopBar';
+import { Suspense } from 'react';
+import { PageHeader } from '@/components/PageHeader';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
+import { useCollection, useUser } from '@/firebase';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { updateStock } from '@/app/actions';
@@ -16,135 +17,185 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Boxes } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { safeFrom } from '@/lib/nav';
+import type { Product, Location } from '@/lib/types';
+import { EditActionBar } from '@/components/EditActionBar';
 
-export default async function BatchUpdateStockPage({ searchParams }: { searchParams: { products: string } }) {
-  const productIds = searchParams.products ? searchParams.products.split(',') : [];
-  
-  if (productIds.length === 0) {
-    notFound();
-  }
+function BatchUpdateContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const { toast } = useToast();
+    const { user, loading: userLoading } = useUser();
 
-  const locations = await getLocations();
-  const products = (await Promise.all(productIds.map(id => getProductById(id))))
-                    .filter(p => p !== undefined) as { id: string, name: string, imageUrl: string, imageHint: string }[];
+    const productIds = useMemo(() => {
+        const p = searchParams.get('products');
+        return p ? p.split(',') : [];
+    }, [searchParams]);
 
-  const updateBatchStock = async (formData: FormData) => {
-    'use server';
-    const productIds = (formData.get('productIds') as string).split(',');
-    const type = formData.get('type') as 'in' | 'out';
-    const quantity = Number(formData.get('quantity'));
-    const locationId = formData.get('locationId') as string;
+    const { data: allProducts, loading: productsLoading } = useCollection<Product>('products', user?.uid);
+    const { data: locations, loading: locationsLoading } = useCollection<Location>('locations', user?.uid);
 
-    for (const productId of productIds) {
-      const singleProductFormData = new FormData();
-      singleProductFormData.append('productId', productId);
-      singleProductFormData.append('type', type);
-      singleProductFormData.append('quantity', String(quantity));
-      singleProductFormData.append('locationId', locationId);
-      // We are not handling errors here for simplicity. In a real app, you would.
-      await updateStock('', singleProductFormData);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const isLoading = userLoading || productsLoading || locationsLoading;
+    const fallbackUrl = safeFrom(searchParams.get('from'), '/stock');
+
+    const products = useMemo(() => {
+        if (!allProducts || productIds.length === 0) return [];
+        const productsMap = new Map(allProducts.map(p => [p.id, p]));
+        return productIds.map(id => productsMap.get(id)).filter((p): p is Product => !!p);
+    }, [allProducts, productIds]);
+    
+    const updateStockWithUid = user?.uid ? updateStock.bind(null, user.uid) : null;
+
+    const handleSave = async () => {
+        const form = document.getElementById('batch-update-form') as HTMLFormElement;
+        if (!form || !updateStockWithUid) return;
+
+        const formData = new FormData(form);
+        const type = formData.get('type') as 'in' | 'out';
+        const quantity = Number(formData.get('quantity'));
+        const locationId = formData.get('locationId') as string;
+
+        if (!type || !quantity || !locationId || quantity <= 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Eksik Bilgi',
+                description: 'Lütfen tüm alanları (tip, miktar > 0, lokasyon) doldurun.'
+            });
+            return;
+        }
+        
+        setIsSubmitting(true);
+        toast({ title: 'Toplu Güncelleme Başladı', description: `${products.length} ürün güncelleniyor...` });
+
+        try {
+            for (const productId of productIds) {
+                const singleProductFormData = new FormData();
+                singleProductFormData.append('productId', productId);
+                singleProductFormData.append('type', type);
+                singleProductFormData.append('quantity', String(quantity));
+                singleProductFormData.append('locationId', locationId);
+                await updateStockWithUid(singleProductFormData);
+            }
+            toast({ title: 'Başarılı!', description: `${products.length} ürünün stoğu başarıyla güncellendi.` });
+            router.push(fallbackUrl);
+            router.refresh();
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Hata', description: error.message || 'Toplu güncelleme sırasında bir hata oluştu.' });
+            setIsSubmitting(false);
+        }
+    };
+
+    if (isLoading) {
+        return <div className="p-4 text-center">Yükleniyor...</div>;
+    }
+    
+    if (productIds.length === 0) {
+        notFound();
     }
 
-    // This redirection needs to be handled on the client side after form submission
-    // Since this is a server component handling a form action, we can't redirect directly
-    // A client-side wrapper would be needed for a redirect. For now, it updates and stays.
-    // A page revalidation would be good here too.
-  };
+    return (
+        <div className="flex flex-col bg-app-bg min-h-dvh">
+            <div className="p-4 space-y-4">
+                <PageHeader title="Toplu Stok Güncelle" fallback={fallbackUrl} />
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Boxes className="w-5 h-5" />
+                            Güncellenecek Ürünler
+                        </CardTitle>
+                        <CardDescription>{products.length} adet ürün güncellenecek.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ScrollArea className="h-48">
+                            <div className="space-y-2 pr-4">
+                            {products.map(product => (
+                                <div key={product.id} className="flex items-center gap-3 p-2 bg-muted rounded-md">
+                                    <Image
+                                      src={product.imageUrl}
+                                      alt={product.name}
+                                      width={40}
+                                      height={40}
+                                      className="rounded-md object-cover"
+                                      data-ai-hint={product.imageHint}
+                                    />
+                                    <p className="font-medium text-sm flex-1">{product.name}</p>
+                                    <Badge variant="outline">{product.sku}</Badge>
+                                </div>
+                            ))}
+                            </div>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
 
-  return (
-    <div className="flex flex-col bg-app-bg min-h-dvh">
-      <TopBar title="Toplu Stok Güncelle" />
-      <div className="p-4 space-y-4">
-        
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Boxes className="w-5 h-5" />
-                    Güncellenecek Ürünler
-                </CardTitle>
-                <CardDescription>{products.length} adet ürün güncellenecek.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-48">
-                    <div className="space-y-2 pr-4">
-                    {products.map(product => (
-                        <div key={product.id} className="flex items-center gap-3 p-2 bg-muted rounded-md">
-                            <Image
-                              src={product.imageUrl}
-                              alt={product.name}
-                              width={40}
-                              height={40}
-                              className="rounded-md object-cover"
-                              data-ai-hint={product.imageHint}
-                            />
-                            <p className="font-medium text-sm flex-1">{product.name}</p>
-                            <Badge variant="outline">{product.id}</Badge>
-                        </div>
-                    ))}
-                    </div>
-                </ScrollArea>
-            </CardContent>
-        </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Stok Hareketi Detayları</CardTitle>
+                    <CardDescription>Tüm seçili ürünler için ortak hareket bilgilerini girin.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form id="batch-update-form" className="space-y-6">
+                      <div className="space-y-2">
+                        <Label>Hareket Tipi</Label>
+                        <RadioGroup name="type" defaultValue="in" className="flex gap-4">
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="in" id="in" />
+                            <Label htmlFor="in" className="font-normal">Giriş</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="out" id="out" />
+                            <Label htmlFor="out" className="font-normal">Çıkış</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Stok Hareketi Detayları</CardTitle>
-            <CardDescription>Tüm ürünler için ortak hareket bilgileri.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={updateBatchStock} className="space-y-6">
-              <input type="hidden" name="productIds" value={products.map(p => p.id).join(',')} />
-              
-              <div className="space-y-2">
-                <Label>Hareket Tipi</Label>
-                <RadioGroup name="type" defaultValue="in" className="flex gap-4">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="in" id="in" />
-                    <Label htmlFor="in" className="font-normal">Giriş</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="out" id="out" />
-                    <Label htmlFor="out" className="font-normal">Çıkış</Label>
-                  </div>
-                </RadioGroup>
-              </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quantity">Adet (Her ürün için)</Label>
+                        <Input
+                          id="quantity"
+                          name="quantity"
+                          type="number"
+                          placeholder="0"
+                          required
+                          min="1"
+                          className="text-base"
+                        />
+                      </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Adet (Her ürün için)</Label>
-                <Input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  placeholder="0"
-                  required
-                  min="1"
-                  className="text-base"
+                      <div className="space-y-2">
+                        <Label htmlFor="locationId">Lokasyon</Label>
+                        <Select name="locationId" required >
+                            <SelectTrigger id="locationId">
+                                <SelectValue placeholder="Raf veya lokasyon seçin..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {locations
+                                .filter(l => l.type === 'shelf')
+                                .map(location => (
+                                    <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+                <EditActionBar
+                  fallback={fallbackUrl}
+                  onSave={handleSave}
+                  saving={isSubmitting}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="locationId">Lokasyon</Label>
-                <Select name="locationId" required >
-                    <SelectTrigger id="locationId">
-                        <SelectValue placeholder="Lokasyon seçin..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {locations.map(location => (
-                            <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-              </div>
-
-              <Button type="submit" className="w-full" size="lg">
-                {products.length} Ürünü Güncelle
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+            </div>
+        </div>
+    );
 }
 
-    
+export default function BatchUpdateStockPage() {
+    return (
+        <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+            <BatchUpdateContent />
+        </Suspense>
+    )
+}

@@ -2,8 +2,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import TopBar from '@/components/ui/TopBar';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,13 +13,17 @@ import { importProductsFromExcel } from '@/app/actions';
 import { Upload, Info, FileSpreadsheet } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUser } from '@/firebase';
+import { safeFrom } from '@/lib/nav';
 
 export default function ImportProductsPage() {
     const { toast } = useToast();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, loading: userLoading } = useUser();
     const [isLoading, setIsLoading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+    const fallbackUrl = safeFrom(searchParams.get('from'), '/stock');
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
@@ -57,8 +61,8 @@ export default function ImportProductsPage() {
                 title: 'Başarılı!',
                 description: 'Ürünler başarıyla içe aktarıldı.',
             });
-            // Redirect using a full page reload to ensure data is fresh
-            window.location.href = '/stock';
+            router.push(fallbackUrl);
+            router.refresh();
         } catch (error: any) {
             toast({
                 variant: 'destructive',
@@ -72,8 +76,10 @@ export default function ImportProductsPage() {
 
     return (
         <div className="flex flex-col bg-app-bg min-h-dvh">
-            <TopBar title="Excel'den Toplu Ürün Ekle" />
-            <div className="p-4 space-y-4">
+            <div className="p-4">
+                 <PageHeader title="Excel'den Toplu Ürün Ekle" fallback={fallbackUrl} />
+            </div>
+            <div className="p-4 pt-0 space-y-4">
                 <Alert>
                     <Info className="h-4 w-4" />
                     <AlertTitle>Excel Dosya Formatı</AlertTitle>
