@@ -115,7 +115,6 @@ export default function NewProductPage() {
         description: `"${formData.get('name')}" başarıyla eklendi.`,
       });
       
-      // Yönlendirme: /product/{newId}?from=<geldiği yer>
       router.push(withFrom(`/product/${result.id}`, fallbackUrl));
       router.refresh();
 
