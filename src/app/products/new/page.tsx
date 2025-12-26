@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useState } from 'react';
@@ -95,7 +96,14 @@ function NewProductPageContent() {
 
   const handleSave = async () => {
     const form = document.getElementById('new-product-form') as HTMLFormElement;
-    if (!form) return;
+    if (!form || !user) {
+        toast({
+            variant: "destructive",
+            title: "Hata",
+            description: "Bu işlemi yapmak için giriş yapmalısınız."
+        });
+        return;
+    };
     
     const formData = new FormData(form);
     
@@ -112,6 +120,7 @@ function NewProductPageContent() {
         description: `"${formData.get('name')}" başarıyla eklendi.`,
       });
       
+      // Navigate to the new product's detail page, preserving the 'from' parameter
       router.push(withFrom(`/product/${result.id}`, fallbackUrl));
       router.refresh();
 
