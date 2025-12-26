@@ -10,9 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Search, ScanLine, Plus, Boxes, Package, AlertTriangle, XCircle } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import LinkWithFrom from '@/components/ui/LinkWithFrom';
-import Link from 'next/link';
 
 type StockStatusFilter = 'all' | 'low' | 'outOfStock' | 'sufficient';
 
@@ -25,6 +24,8 @@ interface EnrichedProduct extends Product {
 export const filterButtonClasses = "inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm transition-colors";
 
 export function StockClient({ initialProducts }: { initialProducts: EnrichedProduct[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const filterQuery = searchParams.get('filter') as StockStatusFilter | null;
 
@@ -32,11 +33,22 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
   const [filterStatus, setFilterStatus] = useState<StockStatusFilter>(filterQuery || 'all');
 
   useEffect(() => {
-    if (filterQuery) {
-        setFilterStatus(filterQuery);
-    }
+    setFilterStatus(filterQuery || 'all');
   }, [filterQuery]);
 
+
+  const handleFilterChange = (status: StockStatusFilter) => {
+    setFilterStatus(status);
+    const params = new URLSearchParams(searchParams);
+    if (status === 'all') {
+      params.delete('filter');
+    } else {
+      params.set('filter', status);
+    }
+    const queryString = params.toString();
+    // Use replace to avoid adding to browser history for filter changes
+    router.replace(`${pathname}${queryString ? `?${queryString}` : ''}`);
+  };
 
   const { totalQuantity, criticalStockCount, outOfStockCount } = useMemo(() => {
       let totalQty = 0;
@@ -154,16 +166,16 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <Button asChild variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8">
-            <Link href="/scan">
+            <LinkWithFrom href="/scan">
               <ScanLine className="h-5 w-5 text-primary" />
               <span className="sr-only">QR Kod Tara</span>
-            </Link>
+            </LinkWithFrom>
           </Button>
         </div>
         
          <div className="flex justify-center items-center gap-2 flex-wrap">
             <button
-              onClick={() => setFilterStatus('all')}
+              onClick={() => handleFilterChange('all')}
               className={cn(
                 filterButtonClasses,
                 "border-emerald-300 text-emerald-800 bg-white hover:bg-emerald-50 hover:text-emerald-900 dark:border-emerald-500 dark:text-emerald-50 dark:bg-transparent dark:hover:bg-emerald-500/20",
@@ -173,7 +185,7 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
               Tümü
             </button>
              <button
-              onClick={() => setFilterStatus('low')}
+              onClick={() => handleFilterChange('low')}
               className={cn(
                 filterButtonClasses,
                 "border-amber-400 text-amber-800 bg-white hover:bg-amber-50 hover:text-amber-900 dark:border-amber-500 dark:text-amber-50 dark:bg-transparent dark:hover:bg-amber-500/20",
@@ -183,7 +195,7 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
               Düşük Stok
             </button>
              <button
-              onClick={() => setFilterStatus('outOfStock')}
+              onClick={() => handleFilterChange('outOfStock')}
               className={cn(
                 filterButtonClasses,
                 "border-red-400 text-red-800 bg-white hover:bg-red-50 hover:text-red-900 dark:border-red-500 dark:text-red-50 dark:bg-transparent dark:hover:bg-red-500/20",

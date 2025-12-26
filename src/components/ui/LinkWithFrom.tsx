@@ -13,15 +13,14 @@ export default function LinkWithFrom({ href, children, ...rest }: Props) {
   const pathname = usePathname();
   const sp = useSearchParams();
 
-  // If 'from' already exists, don't overwrite it. Otherwise, use the current path.
-  const fromParam = sp.get("from");
-  
-  // Use the existing 'from' on the current URL, or fallback to the current pathname
-  const fromValue = fromParam || pathname;
+  // Determine the 'from' value. Prioritize the 'from' in the current URL.
+  // If it doesn't exist, use the current pathname as the fallback.
+  const fromValue = sp.get("from") || pathname;
 
   const hrefStr = typeof href === "string" ? href : href.pathname?.toString() ?? "";
   
-  // Check if the target href ALREADY has a `from` parameter.
+  // Check if the target href ALREADY has its own 'from' parameter.
+  // This prevents overwriting an explicitly set 'from' on a link.
   const targetUrl = new URL(hrefStr, "http://localhost"); // Base URL is dummy
   if (targetUrl.searchParams.has("from")) {
     // If it already has one, don't add another.
