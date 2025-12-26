@@ -22,18 +22,20 @@ export function EditActionBar({
   const isDisabled = saving || disabled;
 
   return (
-    <div className="mt-6 flex justify-end gap-2">
-      <Button
-        variant="secondary"
-        onClick={() => router.push(backTo)}
-        disabled={isDisabled}
-      >
-        İptal
-      </Button>
+    <div className="mt-6 flex justify-end">
+      <div className="inline-flex items-center gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => router.push(backTo)}
+          disabled={isDisabled}
+        >
+          İptal
+        </Button>
 
-      <Button onClick={onSave} disabled={isDisabled}>
-        {saving ? "Kaydediliyor…" : "Kaydet"}
-      </Button>
+        <Button onClick={onSave} disabled={isDisabled}>
+          {saving ? "Kaydediliyor…" : "Kaydet"}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -213,6 +213,7 @@ export default function NewProductPage() {
           fallback={fallbackUrl}
           onSave={handleSave}
           saving={isSubmitting}
+          disabled={userLoading || !user}
         />
       </div>
     </div>
