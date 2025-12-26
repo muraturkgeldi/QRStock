@@ -209,6 +209,7 @@ export default function EditOrderClient({ orderId, initialItems, allProducts }: 
       });
       const backTo = safeFrom(sp.get("from"), `/orders/${orderId}`);
       router.push(backTo);
+      router.refresh();
     } catch (e: any) {
       console.error('UPDATE_ORDER_ITEMS_FAIL', e);
       toast({

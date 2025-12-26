@@ -1,8 +1,7 @@
 
 'use client';
 
-import { useRouter } from 'next/navigation';
-import TopBar from '@/components/ui/TopBar';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,9 +14,13 @@ import { addLocation } from '@/app/actions';
 import { useCollection, useUser } from '@/firebase';
 import { useState, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/PageHeader';
+import { EditActionBar } from '@/components/EditActionBar';
+import { safeFrom } from '@/lib/nav';
 
 export default function NewLocationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user, loading: userLoading } = useUser();
   const { data: locations, loading: locationsLoading } = useCollection<Location>('locations', user?.uid);
@@ -31,24 +34,27 @@ export default function NewLocationPage() {
   const warehouses = useMemo(() => locations.filter(l => l.type === 'warehouse'), [locations]);
   const corridors = useMemo(() => locations.filter(l => l.type === 'corridor' && l.parentId === parentWarehouse), [locations, parentWarehouse]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSave = async () => {
+    const form = document.getElementById('new-location-form') as HTMLFormElement;
+    if(!form) return;
+    const formData = new FormData(form);
+
     if (!user) {
       toast({ variant: 'destructive', title: 'Hata', description: 'Lokasyon eklemek için giriş yapmalısınız.' });
       return;
     }
     
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
 
     try {
       await addLocation(formData);
       toast({ title: 'Başarılı!', description: `Lokasyonlar başarıyla eklendi.` });
-      router.push('/locations');
+      const backTo = safeFrom(searchParams.get('from'), '/locations');
+      router.push(backTo);
+      router.refresh();
     } catch (error: any) {
        toast({ variant: 'destructive', title: 'Hata', description: error.message || "Lokasyon eklenirken bir hata oluştu." });
-    } finally {
-        setIsSubmitting(false);
+       setIsSubmitting(false);
     }
   };
 
@@ -73,7 +79,7 @@ export default function NewLocationPage() {
     }
   }
   
-  const isSubmitDisabled = () => {
+  const isSaveDisabled = () => {
     if (isSubmitting || isLoading) return true;
     if (locationType === 'corridor' && !parentWarehouse) return true;
     if (locationType === 'shelf' && !parentCorridor) return true;
@@ -82,11 +88,20 @@ export default function NewLocationPage() {
   
   const parentIdValue = locationType === 'shelf' ? parentCorridor : (locationType === 'corridor' ? parentWarehouse : undefined);
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col bg-app-bg min-h-dvh">
+        <PageHeader title="Yeni Lokasyon Ekle" fallback="/locations" />
+        <div className="p-4 text-center">Yükleniyor...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-      <TopBar title="Yeni Lokasyon Ekle" />
+      <PageHeader title="Yeni Lokasyon Ekle" fallback="/locations" />
       <div className="p-4">
-        <form onSubmit={handleSubmit}>
+        <form id="new-location-form">
           <input type="hidden" name="type" value={locationType} />
           {parentIdValue && <input type="hidden" name="parentId" value={parentIdValue} />}
           <Card>
@@ -137,13 +152,14 @@ export default function NewLocationPage() {
                 <Label htmlFor="name">{locationType === 'warehouse' ? 'Depo Adı' : locationType === 'corridor' ? 'Koridor Adları' : 'Raf Adları'}</Label>
                 {renderNameInput()}
               </div>
-              
-              <Button type="submit" className="w-full" disabled={isSubmitDisabled()}>
-                {isSubmitting ? 'Ekleniyor...' : 'Lokasyonları Ekle'}
-              </Button>
             </CardContent>
           </Card>
         </form>
+        <EditActionBar
+          fallback={safeFrom(searchParams.get('from'), '/locations')}
+          onSave={handleSave}
+          saving={isSaveDisabled()}
+        />
       </div>
     </div>
   );

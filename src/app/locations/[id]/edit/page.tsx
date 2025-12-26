@@ -1,10 +1,8 @@
 
-
 'use client';
 
-import { useEffect, useState } from 'react';
-import { notFound, useRouter } from 'next/navigation';
-import TopBar from '@/components/ui/TopBar';
+import { Suspense, useEffect, useState } from 'react';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +10,14 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { updateLocation } from '@/app/actions';
 import type { Location } from '@/lib/types';
-import { Pencil } from 'lucide-react';
 import { useDoc, useUser } from '@/firebase';
-import Link from 'next/link';
+import { PageHeader } from '@/components/PageHeader';
+import { EditActionBar } from '@/components/EditActionBar';
+import { safeFrom } from '@/lib/nav';
 
-export default function EditLocationPage({ params }: { params: { id: string } }) {
+function EditLocationPageContent({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { id: locationId } = params;
   const { user, loading: userLoading } = useUser();
@@ -26,12 +26,12 @@ export default function EditLocationPage({ params }: { params: { id: string } })
   
   const isLoading = userLoading || locationLoading;
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!location || !user) return;
+  const handleSave = async () => {
+    const form = document.getElementById('edit-location-form') as HTMLFormElement;
+    if (!form || !location || !user) return;
     
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     
     try {
       await updateLocation(formData);
@@ -39,7 +39,9 @@ export default function EditLocationPage({ params }: { params: { id: string } })
         title: 'Lokasyon Güncellendi!',
         description: `"${formData.get('name')}" başarıyla güncellendi.`,
       });
-      // Redirect is handled by the server action
+      const backTo = safeFrom(searchParams.get('from'), '/locations');
+      router.push(backTo);
+      router.refresh();
     } catch(error: any) {
        toast({
         variant: 'destructive',
@@ -53,7 +55,7 @@ export default function EditLocationPage({ params }: { params: { id: string } })
 
   if (isLoading) {
     return <div className="flex flex-col bg-app-bg min-h-dvh">
-        <TopBar title="Lokasyonu Düzenle" />
+        <PageHeader title="Lokasyonu Düzenle" fallback="/locations" />
         <div className="p-4 text-center">Yükleniyor...</div>
       </div>;
   }
@@ -68,9 +70,9 @@ export default function EditLocationPage({ params }: { params: { id: string } })
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-       <TopBar title="Lokasyonu Düzenle" />
+       <PageHeader title="Lokasyonu Düzenle" fallback={safeFrom(searchParams.get('from'), '/locations')} />
       <div className="p-4">
-        <form onSubmit={handleSubmit}>
+        <form id="edit-location-form">
           <Card>
             <CardHeader>
               <CardTitle>Lokasyon Detayları</CardTitle>
@@ -83,15 +85,24 @@ export default function EditLocationPage({ params }: { params: { id: string } })
                 <Label htmlFor="name">Lokasyon Adı</Label>
                 <Input id="name" name="name" defaultValue={location.name} required disabled={isSubmitting}/>
               </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading || isSubmitting}>
-                <Pencil className="mr-2 h-4 w-4" />
-                {isSubmitting ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
-              </Button>
             </CardContent>
           </Card>
         </form>
+         <EditActionBar 
+            fallback={safeFrom(searchParams.get('from'), '/locations')}
+            onSave={handleSave}
+            saving={isSubmitting}
+        />
       </div>
     </div>
   );
+}
+
+
+export default function EditLocationPage({ params }: { params: { id: string } }) {
+  return (
+    <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+      <EditLocationPageContent params={params} />
+    </Suspense>
+  )
 }

@@ -7,11 +7,17 @@ import { adminDb } from '@/lib/admin.server';
 // Helper to safely fetch initial data on the server
 async function getOrderData(orderId: string): Promise<{ initialItems: PurchaseOrderItem[], allProducts: Product[] }> {
     try {
-        const orderRef = adminDb().collection('purchaseOrders').doc(orderId);
-        const orderSnap = await orderRef.get();
-        const initialItems = orderSnap.exists() ? (orderSnap.data()?.items || []) : [];
+        const orderSnap = await adminDb().collection('purchaseOrders').doc(orderId).get();
+        
+        if (!orderSnap.exists) {
+            return { initialItems: [], allProducts: [] };
+        }
 
-        const productsSnap = await adminDb().collection('products').where('uid', '==', orderSnap.data()?.uid).get();
+        const orderData = orderSnap.data();
+        const initialItems = orderData?.items || [];
+        
+        // Fetch all products belonging to the user who owns the order
+        const productsSnap = await adminDb().collection('products').where('uid', '==', orderData?.uid).get();
         const allProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         
         return { initialItems, allProducts };
@@ -28,8 +34,10 @@ export default async function EditOrderPage({ params }: { params: { id: string }
   const { initialItems, allProducts } = await getOrderData(orderId);
 
   return (
-    <Suspense fallback={<div className="p-4 text-center">Düzenleme ekranı yükleniyor...</div>}>
-      <EditOrderClient orderId={orderId} initialItems={initialItems} allProducts={allProducts} />
-    </Suspense>
+    <div className="flex flex-col bg-app-bg min-h-dvh">
+        <Suspense fallback={<div className="p-4 text-center">Düzenleme ekranı yükleniyor...</div>}>
+          <EditOrderClient orderId={orderId} initialItems={initialItems} allProducts={allProducts} />
+        </Suspense>
+    </div>
   );
 }

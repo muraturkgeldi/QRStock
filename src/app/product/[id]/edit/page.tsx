@@ -175,8 +175,10 @@ function PageContent({ params }: { params: { id: string } }) {
 
 export default function Page({ params }: { params: { id: string } }) {
     return (
+      <div className="flex flex-col bg-app-bg min-h-dvh">
         <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
             <PageContent params={params} />
         </Suspense>
+      </div>
     )
 }
