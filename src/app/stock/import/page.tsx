@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -15,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUser } from '@/firebase';
 import { safeFrom } from '@/lib/nav';
 
-export default function ImportProductsPage() {
+function ImportProductsPageContent() {
     const { toast } = useToast();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -133,4 +132,12 @@ export default function ImportProductsPage() {
             </div>
         </div>
     );
+}
+
+export default function ImportProductsPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+      <ImportProductsPageContent />
+    </Suspense>
+  )
 }

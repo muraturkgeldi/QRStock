@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EditActionBar } from '@/components/EditActionBar';
 import { withFrom, safeFrom } from '@/lib/nav';
 
-/**
- * Basit tag alanı
- */
+
 function TagField({
   tags,
   setTags,
@@ -56,7 +54,6 @@ function TagField({
         onKeyDown={handleKeyDown}
         disabled={disabled}
       />
-      {/* server action'a gidecek gizli alan */}
       <input type="hidden" name="tags" value={tags.join(',')} />
       <div className="flex gap-2 flex-wrap pt-2">
         {tags.map((tag) => (
@@ -85,7 +82,7 @@ function TagField({
   );
 }
 
-export default function NewProductPage() {
+function NewProductPageContent() {
   const { user, loading: userLoading } = useUser();
   const [tags, setTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,4 +215,12 @@ export default function NewProductPage() {
       </div>
     </div>
   );
+}
+
+export default function NewProductPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+      <NewProductPageContent />
+    </Suspense>
+  )
 }
