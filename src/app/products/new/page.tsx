@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import TopBar from '@/components/ui/TopBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,7 @@ import { useUser } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
-import { EditActionBar } from '@/components/EditActionBar';
+import { EditActionBar } from '@/components/ui/EditActionBar';
 import { withFrom, safeFrom } from '@/lib/nav';
 
 /**
@@ -95,27 +94,29 @@ export default function NewProductPage() {
   const { toast } = useToast();
   
   const from = searchParams.get('from');
+  const fallbackUrl = safeFrom(from, '/products');
 
   const handleSave = async () => {
-    // Manually gather form data to avoid full page reload from form element
     const form = document.getElementById('new-product-form') as HTMLFormElement;
     if (!form) return;
     
     const formData = new FormData(form);
-    const sku = formData.get('sku') as string;
     
     setIsSubmitting(true);
 
     try {
-      await addProduct(formData);
+      const result = await addProduct(formData);
+      if (!result.id) {
+        throw new Error('Yeni ürün ID bilgisi alınamadı.');
+      }
+      
       toast({
         title: 'Ürün Oluşturuldu!',
         description: `"${formData.get('name')}" başarıyla eklendi.`,
       });
-      // Redirect to the new product's detail page, preserving the original 'from'
-      // which should be the list page.
-      const newId = sku.replace(/[^a-zA-Z0-9-]/g, '-');
-      router.push(withFrom(`/product/${newId}`, safeFrom(from, '/products')));
+      
+      // Yönlendirme: /product/{newId}?from=<geldiği yer>
+      router.push(withFrom(`/product/${result.id}`, fallbackUrl));
 
     } catch (error: any) {
       toast({
@@ -130,7 +131,7 @@ export default function NewProductPage() {
   if (userLoading) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <PageHeader title="Yeni Ürün Ekle" fallback="/products" />
+        <PageHeader title="Yeni Ürün Ekle" fallback={fallbackUrl} />
         <div className="p-4 text-center">Yükleniyor...</div>
       </div>
     );
@@ -139,7 +140,7 @@ export default function NewProductPage() {
   if (!user) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <PageHeader title="Yeni Ürün Ekle" fallback="/products" />
+        <PageHeader title="Yeni Ürün Ekle" fallback={fallbackUrl} />
         <div className="p-4 text-center">
           Oturum bulunamadı. Lütfen tekrar giriş yap.
         </div>
@@ -149,7 +150,7 @@ export default function NewProductPage() {
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-      <PageHeader title="Yeni Ürün Ekle" fallback="/products" />
+      <PageHeader title="Yeni Ürün Ekle" fallback={fallbackUrl} />
       <div className="p-4">
         <Card>
           <CardHeader>
@@ -157,9 +158,7 @@ export default function NewProductPage() {
             <CardDescription>Stok sistemine yeni bir ürün ekleyin.</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* We use a div as form to prevent default submission */}
             <form id="new-product-form" className="space-y-6">
-              {/* 🔥 UID'i forma gömüyoruz */}
               <input type="hidden" name="uid" value={user.uid} />
 
               <div className="space-y-2">
@@ -211,7 +210,7 @@ export default function NewProductPage() {
           </CardContent>
         </Card>
         <EditActionBar
-          fallback={safeFrom(from, "/products")}
+          fallback={fallbackUrl}
           onSave={handleSave}
           saving={isSubmitting}
         />

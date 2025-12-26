@@ -198,19 +198,15 @@ export async function updateStock(uid: string, formData: FormData) {
     }
 }
 
-export async function addProduct(formData: FormData) {
-  // ✅ Artık uid’i session’dan değil, formdan alıyoruz
+export async function addProduct(formData: FormData): Promise<{ id: string }> {
   const uid = String(formData.get('uid') || '');
-
   if (!uid) {
-    // Buraya düşüyorsa formda uid yok demektir
     throw new Error('AUTH_UID_MISSING');
   }
 
   const name = String(formData.get('name') || '');
   const description = String(formData.get('description') || '');
   const sku = String(formData.get('sku') || '');
-  const id = sku.replace(/[^a-zA-Z0-9-]/g, '-');
   const minStockLevel = Number(formData.get('minStockLevel') || 0);
 
   const tagsString = formData.get('tags') as string;
@@ -218,17 +214,14 @@ export async function addProduct(formData: FormData) {
     ? tagsString.split(',').map(t => t.trim()).filter(Boolean)
     : [];
 
-  try {
-    await addProductToDB(uid, { id, name, description, sku, minStockLevel, tags });
-  } catch (error: any) {
-    console.error("Failed to add product:", error.message);
-    throw error;
-  }
+  const newId = await addProductToDB(uid, { name, description, sku, minStockLevel, tags });
 
   revalidatePath('/stock');
-  // Yönlendirme artık istemci tarafından yönetiliyor.
-  // redirect('/stock');
+  revalidatePath('/products');
+
+  return { id: newId };
 }
+
 
 
 export async function updateProduct(formData: FormData) {
@@ -496,9 +489,12 @@ export async function fixSkusFromExcel(formData: FormData) {
 
 // Purchase Order Actions
 export async function createPurchaseOrder(
-  items: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[]
+  items: Omit<PurchaseOrderItem, 'receivedQuantity' | 'remainingQuantity'>[],
+  userInfo: { uid: string, email?: string, displayName?: string }
 ){
   const uid = await getUidFromSession();
+  if (uid !== userInfo.uid) throw new Error('UNAUTHORIZED');
+
   try {
     if (!Array.isArray(items)) return { ok:false, error:'Ürün listesi yok' };
 
@@ -513,7 +509,22 @@ export async function createPurchaseOrder(
 
     if (clean.length===0) return { ok:false, error:'Siparişte adet > 0 olan ürün yok' };
 
-    const result = await createPurchaseOrderInDB({ uid, items: clean, status:'draft' });
+    const result = await createPurchaseOrderInDB({ uid, userInfo, items: clean, status:'draft' });
+
+     await recordOrderEvent({
+        ownerUid: uid,
+        orderId: result.id,
+        type: 'created',
+        actor: {
+            uid: userInfo.uid,
+            email: userInfo.email,
+            displayName: userInfo.displayName,
+            role: 'purchaser',
+        },
+        note: 'Sipariş oluşturuldu',
+    });
+
+
     revalidatePath('/orders'); revalidatePath('/');
     return { ok:true, data: result };
   } catch (e:any) {
@@ -523,105 +534,174 @@ export async function createPurchaseOrder(
   }
 }
 
-export async function updatePurchaseOrder(orderId: string, items: PurchaseOrderItem[]) {
+export async function updatePurchaseOrder(formData: FormData) {
     const uid = await getUidFromSession();
+    const orderId = formData.get('orderId') as string;
+    const itemsJson = formData.get('items') as string;
+
+    if (!orderId || !itemsJson) {
+      throw new Error('Eksik bilgi: orderId ve items zorunludur.');
+    }
+    
+    let items: PurchaseOrderItem[];
     try {
-        if (!orderId || !Array.isArray(items)) {
-            return { ok: false, error: 'Geçersiz veri: Sipariş ID ve ürün listesi zorunludur.' };
+      items = JSON.parse(itemsJson);
+    } catch {
+      throw new Error('Geçersiz ürün formatı.');
+    }
+
+    if (!Array.isArray(items)) {
+        throw new Error('Ürün listesi bir dizi olmalıdır.');
+    }
+
+    try {
+        const orderRef = doc(getServerDb(), 'purchaseOrders', orderId);
+        const orderSnap = await getDoc(orderRef);
+
+        if (!orderSnap.exists() || orderSnap.data().uid !== uid) {
+            throw new Error('Sipariş bulunamadı veya yetkiniz yok.');
         }
 
-        await updatePurchaseOrderInDB(orderId, uid, items);
+        const existingItemsMap = new Map(orderSnap.data().items.map((item: PurchaseOrderItem) => [item.productId, item]));
+
+        const finalItems = items.map(item => {
+            const existingItem = existingItemsMap.get(item.productId);
+            const receivedQuantity = existingItem ? (Number(existingItem.receivedQuantity) || 0) : 0;
+            const quantity = Number(item.quantity) || 0;
+            return {
+                ...item,
+                quantity: quantity,
+                receivedQuantity: receivedQuantity,
+                remainingQuantity: Math.max(0, quantity - receivedQuantity),
+            };
+        });
+
+        await updatePurchaseOrderInDB(orderId, uid, finalItems);
         
         revalidatePath('/orders');
         revalidatePath(`/orders/${orderId}`);
 
-        return { ok: true };
-
     } catch (e: any) {
         console.error('UPDATE_PO_ERROR:', e?.stack || e);
-        return { ok: false, error: e.message || 'UPDATE_PO_FAILED', code: e.code || null };
+        throw new Error(e.message || 'Sipariş güncellenirken bir hata oluştu.');
     }
 }
 
 
 export async function receivePurchaseOrderItem(formData: FormData) {
-    const db = getServerDb();
-    const uid = await getUidFromSession();
+  const db = adminDb(); // ✅ admin firestore
+  const uid = await getUidFromSession();
+  const user = await adminAuth().getUser(uid);
 
-    const orderId = formData.get('orderId') as string;
-    const productId = formData.get('productId') as string;
-    const receivedQuantity = Number(formData.get('receivedQuantity'));
-    const locationId = formData.get('locationId') as string;
-    
-    if (!orderId || !productId || !receivedQuantity || !locationId) {
-        throw new Error("Eksik bilgi: Sipariş ID, Ürün ID, Miktar ve Lokasyon zorunludur.");
+  const orderId = formData.get('orderId') as string;
+  const productId = formData.get('productId') as string;
+  const receivedQuantity = Number(formData.get('receivedQuantity'));
+  const locationId = formData.get('locationId') as string;
+
+  if (!orderId || !productId || !receivedQuantity || !locationId) {
+    throw new Error('Eksik bilgi: Sipariş ID, Ürün ID, Miktar ve Lokasyon zorunludur.');
+  }
+
+  const result = await db.runTransaction(async (tx) => {
+    const orderRef = db.collection('purchaseOrders').doc(orderId);
+    const orderSnap = await tx.get(orderRef);
+
+    if (!orderSnap.exists) {
+      throw new Error('Sipariş bulunamadı.');
     }
-    
-    await runTransaction(db, async (transaction) => {
-        const orderRef = doc(db, "purchaseOrders", orderId);
-        const orderSnap = await transaction.get(orderRef);
 
-        if (!orderSnap.exists() || orderSnap.data().uid !== uid) {
-            throw new Error("Sipariş bulunamadı veya bu işlem için yetkiniz yok.");
-        }
+    const order: any = orderSnap.data();
+    if (order.uid !== uid) {
+      throw new Error('Sipariş bulunamadı veya bu işlem için yetkiniz yok.');
+    }
 
-        const order: any = orderSnap.data();
-        const itemIndex = order.items.findIndex((item:any) => item.productId === productId);
+    const oldStatus = order.status;
+    const itemIndex = order.items.findIndex((it: any) => it.productId === productId);
+    if (itemIndex === -1) throw new Error('Sipariş içinde ürün bulunamadı.');
 
-        if (itemIndex === -1) {
-            throw new Error("Sipariş içinde ürün bulunamadı.");
-        }
+    const item = order.items[itemIndex];
 
-        const item = order.items[itemIndex];
-        
-        if (receivedQuantity > item.remainingQuantity) {
-            throw new Error(`Teslim alınan miktar (${receivedQuantity}), kalan miktardan (${item.remainingQuantity}) fazla olamaz.`);
-        }
+    if (receivedQuantity > Number(item.remainingQuantity || 0)) {
+      throw new Error(
+        `Teslim alınan miktar (${receivedQuantity}), kalan miktardan (${item.remainingQuantity}) fazla olamaz.`
+      );
+    }
 
-        const newReceived = item.receivedQuantity + receivedQuantity;
-        const newRemaining = item.quantity - newReceived;
-        
-        order.items[itemIndex].receivedQuantity = newReceived;
-        order.items[itemIndex].remainingQuantity = newRemaining;
+    const newReceived = Number(item.receivedQuantity || 0) + receivedQuantity;
+    const newRemaining = Number(item.quantity || 0) - newReceived;
 
-        const allItemsReceived = order.items.every((i:any) => i.remainingQuantity <= 0);
-        const someItemsReceived = order.items.some((i:any) => i.receivedQuantity > 0);
+    order.items[itemIndex].receivedQuantity = newReceived;
+    order.items[itemIndex].remainingQuantity = newRemaining;
 
-        if (allItemsReceived) {
-            order.status = 'received';
-        } else if (someItemsReceived) {
-            order.status = 'partially-received';
-        } else {
-            order.status = 'ordered';
-        }
+    const allItemsReceived = order.items.every((i: any) => Number(i.remainingQuantity || 0) <= 0);
+    const someItemsReceived = order.items.some((i: any) => Number(i.receivedQuantity || 0) > 0);
 
-        transaction.update(orderRef, { items: order.items, status: order.status });
-        
-        const stockItemsRef = collection(db, 'stockItems');
-        const q = query(stockItemsRef, where('productId', '==', productId), where('locationId', '==', locationId), where('uid', '==', uid));
-        const stockSnapshot = await getDocs(q);
+    let newStatus = order.status;
+    if (allItemsReceived) newStatus = 'received';
+    else if (someItemsReceived) newStatus = 'partially-received';
 
-        if (stockSnapshot.empty) {
-            const newStockItemRef = doc(collection(db, 'stockItems'));
-            transaction.set(newStockItemRef, { productId, locationId, quantity: receivedQuantity, uid });
-        } else {
-            const stockItemDoc = stockSnapshot.docs[0];
-            const newQuantity = stockItemDoc.data().quantity + receivedQuantity;
-            transaction.update(stockItemDoc.ref, { quantity: newQuantity });
-        }
-        
-        const newMovementRef = doc(collection(db, 'stockMovements'));
-        transaction.set(newMovementRef, {
-            productId,
-            locationId,
-            type: 'in',
-            quantity: receivedQuantity,
-            date: serverTimestamp(),
-            uid,
-            userId: uid,
-            description: `Sipariş #${order.orderNumber} teslimatı`
-        });
+    // ✅ order update
+    tx.update(orderRef, { items: order.items, status: newStatus });
+
+    // ✅ stockItems upsert (uid + productId + locationId)
+    const stockQuery = db
+      .collection('stockItems')
+      .where('uid', '==', uid)
+      .where('productId', '==', productId)
+      .where('locationId', '==', locationId);
+
+    const stockSnap = await tx.get(stockQuery);
+
+    if (stockSnap.empty) {
+      const newStockRef = db.collection('stockItems').doc();
+      tx.set(newStockRef, { uid, productId, locationId, quantity: receivedQuantity });
+    } else {
+      const doc0 = stockSnap.docs[0];
+      const currentQty = Number(doc0.data().quantity || 0);
+      tx.update(doc0.ref, { quantity: currentQty + receivedQuantity });
+    }
+
+    // ✅ stockMovements insert
+    const moveRef = db.collection('stockMovements').doc();
+    tx.set(moveRef, {
+      uid,
+      productId,
+      locationId,
+      type: 'in',
+      quantity: receivedQuantity,
+      date: FieldValue.serverTimestamp(),
+      userId: user.displayName || user.email || uid,
+      description: `Sipariş #${order.orderNumber} teslimatı`,
     });
+
+    return { newStatus, oldStatus, item };
+  });
+
+  const { newStatus, oldStatus, item } = result;
+
+    if (newStatus !== oldStatus) {
+        await recordOrderEvent({
+            ownerUid: uid,
+            orderId,
+            type: 'status-changed',
+            actor: { uid, email: user.email, displayName: user.displayName, role: 'warehouse' },
+            fromStatus: oldStatus,
+            toStatus: newStatus,
+            note: 'Mal kabul ile durum değişti'
+        });
+    }
+
+    await recordOrderEvent({
+        ownerUid: uid,
+        orderId,
+        type: newStatus === 'received' ? 'item-received' : 'item-partially-received',
+        actor: { uid, email: user.email, displayName: user.displayName, role: 'warehouse' },
+        itemId: productId,
+        productSku: item.productSku,
+        quantity: receivedQuantity,
+        note: `Mal kabul: ${receivedQuantity} adet alındı`
+    });
+
 
     revalidatePath(`/orders/${orderId}`);
     revalidatePath('/orders');
@@ -730,8 +810,4 @@ async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin
     }
 }
     
-
     
-
-    
-

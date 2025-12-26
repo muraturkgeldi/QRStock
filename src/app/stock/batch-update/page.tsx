@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense } from 'react';
@@ -20,7 +19,7 @@ import { Boxes } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { safeFrom } from '@/lib/nav';
 import type { Product, Location } from '@/lib/types';
-import { EditActionBar } from '@/components/EditActionBar';
+import { EditActionBar } from '@/components/ui/EditActionBar';
 
 function BatchUpdateContent() {
     const router = useRouter();

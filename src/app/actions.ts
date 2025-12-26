@@ -199,19 +199,15 @@ export async function updateStock(uid: string, formData: FormData) {
     }
 }
 
-export async function addProduct(formData: FormData) {
-  // ✅ Artık uid’i session’dan değil, formdan alıyoruz
+export async function addProduct(formData: FormData): Promise<{ id: string }> {
   const uid = String(formData.get('uid') || '');
-
   if (!uid) {
-    // Buraya düşüyorsa formda uid yok demektir
     throw new Error('AUTH_UID_MISSING');
   }
 
   const name = String(formData.get('name') || '');
   const description = String(formData.get('description') || '');
   const sku = String(formData.get('sku') || '');
-  const id = sku.replace(/[^a-zA-Z0-9-]/g, '-');
   const minStockLevel = Number(formData.get('minStockLevel') || 0);
 
   const tagsString = formData.get('tags') as string;
@@ -219,17 +215,14 @@ export async function addProduct(formData: FormData) {
     ? tagsString.split(',').map(t => t.trim()).filter(Boolean)
     : [];
 
-  try {
-    await addProductToDB(uid, { id, name, description, sku, minStockLevel, tags });
-  } catch (error: any) {
-    console.error("Failed to add product:", error.message);
-    throw error;
-  }
+  const newId = await addProductToDB(uid, { name, description, sku, minStockLevel, tags });
 
   revalidatePath('/stock');
-  // Yönlendirme artık istemci tarafından yönetiliyor.
-  // redirect('/stock');
+  revalidatePath('/products');
+
+  return { id: newId };
 }
+
 
 
 export async function updateProduct(formData: FormData) {
