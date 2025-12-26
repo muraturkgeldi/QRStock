@@ -1,8 +1,10 @@
+
 import { Suspense } from 'react';
 import EditOrderClient from './EditOrderClient';
 import type { Product, PurchaseOrderItem } from '@/lib/types';
 import { adminDb } from '@/lib/admin.server';
 import { PageHeader } from '@/components/PageHeader';
+import { safeFrom } from '@/lib/nav';
 
 // Helper to safely fetch initial data on the server
 async function getOrderData(orderId: string): Promise<{ initialItems: PurchaseOrderItem[], allProducts: Product[] }> {
@@ -36,12 +38,14 @@ export default async function EditOrderPage(
   const orderId = params.id;
   
   const { initialItems, allProducts } = await getOrderData(orderId);
-  const fallback = typeof searchParams?.from === "string" ? searchParams.from : `/orders/${orderId}`;
+  const fallback = safeFrom(searchParams?.from, `/orders/${orderId}`);
 
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-        <PageHeader title="Siparişi Düzenle" fallback={fallback} />
+        <Suspense fallback={<div className="h-16" />}>
+          <PageHeader title="Siparişi Düzenle" fallback={fallback} />
+        </Suspense>
         <Suspense fallback={<div className="p-4 text-center">Düzenleme ekranı yükleniyor...</div>}>
           <EditOrderClient
             orderId={orderId}
