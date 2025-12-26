@@ -4,9 +4,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -34,14 +31,6 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-  },
-  webpack: (config) => {
-    // This rule is no longer needed as we are fetching from /public
-    // config.module.rules.push({
-    //   test: /\.(ttf|otf|woff|woff2)$/i,
-    //   type: 'asset/inline',
-    // });
-    return config;
   },
 };
 
