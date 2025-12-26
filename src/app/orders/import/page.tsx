@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';

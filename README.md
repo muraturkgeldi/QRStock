@@ -1,4 +1,4 @@
-# QRStock
+un b# QRStock
 
 NextJS
 starter in
