@@ -1,8 +1,8 @@
-
 import { Suspense } from 'react';
 import EditOrderClient from './EditOrderClient';
 import type { Product, PurchaseOrderItem } from '@/lib/types';
 import { adminDb } from '@/lib/admin.server';
+import { PageHeader } from '@/components/PageHeader';
 
 // Helper to safely fetch initial data on the server
 async function getOrderData(orderId: string): Promise<{ initialItems: PurchaseOrderItem[], allProducts: Product[] }> {
@@ -35,6 +35,7 @@ export default async function EditOrderPage({ params }: { params: { id: string }
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
+        <PageHeader title="Siparişi Düzenle" fallback={`/orders/${orderId}`} />
         <Suspense fallback={<div className="p-4 text-center">Düzenleme ekranı yükleniyor...</div>}>
           <EditOrderClient orderId={orderId} initialItems={initialItems} allProducts={allProducts} />
         </Suspense>

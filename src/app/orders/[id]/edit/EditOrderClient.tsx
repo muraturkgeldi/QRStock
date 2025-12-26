@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { updateOrderItemsClient } from "@/lib/orders.client";
-import { PageHeader } from '@/components/PageHeader';
 import { EditActionBar } from '@/components/EditActionBar';
 import { safeFrom } from '@/lib/nav';
 
@@ -129,6 +128,7 @@ export default function EditOrderClient({ orderId, initialItems, allProducts }: 
   const [items, setItems] = useState<EditableItem[]>(initialItems);
   const [saving, setSaving] = useState(false);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
+  const fallbackUrl = safeFrom(sp.get("from"), `/orders/${orderId}`);
 
   const handleQtyChange = (index: number, value: string) => {
     const n = Number(String(value).replace(',', '.'));
@@ -207,8 +207,7 @@ export default function EditOrderClient({ orderId, initialItems, allProducts }: 
         title: 'Sipariş güncellendi',
         description: 'Değişiklikler kaydedildi.',
       });
-      const backTo = safeFrom(sp.get("from"), `/orders/${orderId}`);
-      router.push(backTo);
+      router.push(fallbackUrl);
       router.refresh();
     } catch (e: any) {
       console.error('UPDATE_ORDER_ITEMS_FAIL', e);
@@ -223,8 +222,6 @@ export default function EditOrderClient({ orderId, initialItems, allProducts }: 
 
   return (
     <div className="p-4">
-        <PageHeader title="Siparişi Düzenle" fallback={`/orders/${orderId}`} />
-
         <div className="space-y-3">
           {items.map((item, idx) =>
             item._deleted ? null : (
@@ -287,7 +284,7 @@ export default function EditOrderClient({ orderId, initialItems, allProducts }: 
         </div>
       
         <EditActionBar
-            fallback={`/orders/${orderId}`}
+            fallback={fallbackUrl}
             onSave={onSave}
             saving={saving}
         />
