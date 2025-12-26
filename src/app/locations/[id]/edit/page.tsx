@@ -25,6 +25,7 @@ function EditLocationPageContent({ params }: { params: { id: string } }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const isLoading = userLoading || locationLoading;
+  const fallbackUrl = safeFrom(searchParams.get('from'), '/locations');
 
   const handleSave = async () => {
     const form = document.getElementById('edit-location-form') as HTMLFormElement;
@@ -39,8 +40,7 @@ function EditLocationPageContent({ params }: { params: { id: string } }) {
         title: 'Lokasyon Güncellendi!',
         description: `"${formData.get('name')}" başarıyla güncellendi.`,
       });
-      const backTo = safeFrom(searchParams.get('from'), '/locations');
-      router.push(backTo);
+      router.push(fallbackUrl);
       router.refresh();
     } catch(error: any) {
        toast({
@@ -54,10 +54,12 @@ function EditLocationPageContent({ params }: { params: { id: string } }) {
 
 
   if (isLoading) {
-    return <div className="flex flex-col bg-app-bg min-h-dvh">
-        <PageHeader title="Lokasyonu Düzenle" fallback="/locations" />
+    return (
+      <div className="flex flex-col bg-app-bg min-h-dvh">
+        <PageHeader title="Lokasyonu Düzenle" fallback={fallbackUrl} />
         <div className="p-4 text-center">Yükleniyor...</div>
-      </div>;
+      </div>
+    );
   }
 
   if (!location) {
@@ -70,7 +72,7 @@ function EditLocationPageContent({ params }: { params: { id: string } }) {
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-       <PageHeader title="Lokasyonu Düzenle" fallback={safeFrom(searchParams.get('from'), '/locations')} />
+      <PageHeader title="Lokasyonu Düzenle" fallback={fallbackUrl} />
       <div className="p-4">
         <form id="edit-location-form">
           <Card>
@@ -89,7 +91,7 @@ function EditLocationPageContent({ params }: { params: { id: string } }) {
           </Card>
         </form>
          <EditActionBar 
-            fallback={safeFrom(searchParams.get('from'), '/locations')}
+            fallback={fallbackUrl}
             onSave={handleSave}
             saving={isSubmitting}
         />

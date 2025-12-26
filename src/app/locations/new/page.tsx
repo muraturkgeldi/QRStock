@@ -91,7 +91,7 @@ export default function NewLocationPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <PageHeader title="Yeni Lokasyon Ekle" fallback="/locations" />
+        <PageHeader title="Yeni Lokasyon Ekle" fallback={safeFrom(searchParams.get('from'), '/locations')} />
         <div className="p-4 text-center">Yükleniyor...</div>
       </div>
     );
@@ -99,7 +99,7 @@ export default function NewLocationPage() {
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-      <PageHeader title="Yeni Lokasyon Ekle" fallback="/locations" />
+      <PageHeader title="Yeni Lokasyon Ekle" fallback={safeFrom(searchParams.get('from'), '/locations')} />
       <div className="p-4">
         <form id="new-location-form">
           <input type="hidden" name="type" value={locationType} />

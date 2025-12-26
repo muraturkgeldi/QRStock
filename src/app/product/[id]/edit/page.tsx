@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PageHeader } from '@/components/PageHeader';
@@ -102,7 +103,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
 
   return (
     <>
-      <PageHeader title="Ürünü Düzenle" fallback={`/product/${productId}`} />
+      <PageHeader title="Ürünü Düzenle" fallback={safeFrom(useSearchParams().get('from'), `/product/${productId}`)} />
       <Card>
         <CardHeader>
           <CardTitle>Ürün Detayları</CardTitle>
@@ -147,7 +148,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
         </CardContent>
       </Card>
       <EditActionBar
-        fallback={`/product/${productId}`}
+        fallback={safeFrom(useSearchParams().get('from'), `/product/${productId}`)}
         onSave={handleSave}
         saving={isSubmitting}
       />

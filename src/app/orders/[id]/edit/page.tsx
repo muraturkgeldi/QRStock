@@ -9,7 +9,7 @@ async function getOrderData(orderId: string): Promise<{ initialItems: PurchaseOr
     try {
         const orderSnap = await adminDb().collection('purchaseOrders').doc(orderId).get();
         
-        if (!orderSnap.exists) {
+        if (!orderSnap.exists()) {
             return { initialItems: [], allProducts: [] };
         }
 
