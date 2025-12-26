@@ -10,15 +10,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/types';
 import { X } from 'lucide-react';
-import { useDoc, useUser } from '@/firebase';
-import { useState, FormEvent, useEffect, Suspense } from 'react';
+import { useDoc } from '@/firebase';
+import { useState, useEffect, Suspense } from 'react';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore } from '@/firebase/provider';
 import { doc, updateDoc } from 'firebase/firestore';
 import { safeFrom } from '@/lib/nav';
 
-function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSaveSuccess: () => void }) {
+function ProductEditForm({ 
+  productId,
+  fallbackUrl,
+  onSaveSuccess 
+}: { 
+  productId: string;
+  fallbackUrl: string;
+  onSaveSuccess: () => void 
+}) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { data: product, loading: productLoading } = useDoc<Product>(`products/${productId}`);
@@ -103,7 +111,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
 
   return (
     <>
-      <PageHeader title="Ürünü Düzenle" fallback={safeFrom(useSearchParams().get('from'), `/product/${productId}`)} />
+      <PageHeader title="Ürünü Düzenle" fallback={fallbackUrl} />
       <Card>
         <CardHeader>
           <CardTitle>Ürün Detayları</CardTitle>
@@ -148,7 +156,7 @@ function ProductEditForm({ productId, onSaveSuccess }: { productId: string; onSa
         </CardContent>
       </Card>
       <EditActionBar
-        fallback={safeFrom(useSearchParams().get('from'), `/product/${productId}`)}
+        fallback={fallbackUrl}
         onSave={handleSave}
         saving={isSubmitting}
       />
@@ -161,15 +169,16 @@ function PageContent({ params }: { params: { id: string } }) {
   const router = useRouter();
   const sp = useSearchParams();
 
+  const fallbackUrl = safeFrom(sp.get("from"), `/product/${id}`);
+
   const handleSuccess = () => {
-     const backTo = safeFrom(sp.get("from"), `/product/${id}`);
-     router.push(backTo);
+     router.push(fallbackUrl);
      router.refresh();
   }
 
   return (
     <div className="p-4">
-        <ProductEditForm productId={id} onSaveSuccess={handleSuccess} />
+        <ProductEditForm productId={id} fallbackUrl={fallbackUrl} onSaveSuccess={handleSuccess} />
     </div>
   );
 }

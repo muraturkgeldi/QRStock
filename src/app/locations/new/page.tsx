@@ -34,7 +34,16 @@ export default function NewLocationPage() {
   const warehouses = useMemo(() => locations.filter(l => l.type === 'warehouse'), [locations]);
   const corridors = useMemo(() => locations.filter(l => l.type === 'corridor' && l.parentId === parentWarehouse), [locations, parentWarehouse]);
 
+  const isSaveDisabled = () => {
+    if (isSubmitting || isLoading) return true;
+    if (locationType === 'corridor' && !parentWarehouse) return true;
+    if (locationType === 'shelf' && !parentCorridor) return true;
+    return false;
+  }
+
   const handleSave = async () => {
+    if (isSaveDisabled()) return;
+
     const form = document.getElementById('new-location-form') as HTMLFormElement;
     if(!form) return;
     const formData = new FormData(form);
@@ -77,13 +86,6 @@ export default function NewLocationPage() {
                 </>
             );
     }
-  }
-  
-  const isSaveDisabled = () => {
-    if (isSubmitting || isLoading) return true;
-    if (locationType === 'corridor' && !parentWarehouse) return true;
-    if (locationType === 'shelf' && !parentCorridor) return true;
-    return false;
   }
   
   const parentIdValue = locationType === 'shelf' ? parentCorridor : (locationType === 'corridor' ? parentWarehouse : undefined);
@@ -158,7 +160,7 @@ export default function NewLocationPage() {
         <EditActionBar
           fallback={safeFrom(searchParams.get('from'), '/locations')}
           onSave={handleSave}
-          saving={isSaveDisabled()}
+          saving={isSubmitting}
         />
       </div>
     </div>
