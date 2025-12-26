@@ -31,15 +31,17 @@ async function getOrderData(orderId: string): Promise<{ initialItems: PurchaseOr
 
 export default async function EditOrderPage(
   { params, searchParams } : 
-  { params: Promise<{ id: string }>, searchParams?: Promise<Record<string, string | string[] | undefined>> }
+  { params: { id: string }, searchParams?: { from?: string } }
 ) {
-  const { id: orderId } = await params;
+  const orderId = params.id;
   
   const { initialItems, allProducts } = await getOrderData(orderId);
+  const fallback = typeof searchParams?.from === "string" ? searchParams.from : `/orders/${orderId}`;
+
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-        <PageHeader title="Siparişi Düzenle" fallback={`/orders/${orderId}`} />
+        <PageHeader title="Siparişi Düzenle" fallback={fallback} />
         <Suspense fallback={<div className="p-4 text-center">Düzenleme ekranı yükleniyor...</div>}>
           <EditOrderClient
             orderId={orderId}

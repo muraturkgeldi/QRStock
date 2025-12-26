@@ -11,7 +11,7 @@ export function EditActionBar({
   disabled = false,
 }: {
   fallback: string;
-  onSave: () => Promise<void>;
+  onSave: () => Promise<void> | void;
   saving?: boolean;
   disabled?: boolean;
 }) {
@@ -20,15 +20,18 @@ export function EditActionBar({
   const backTo = safeFrom(sp.get("from"), fallback);
 
   return (
-    <div className="mt-6 flex justify-end">
-      <div className="inline-flex items-center gap-2">
-        <Button variant="secondary" onClick={() => router.push(backTo)} disabled={saving || disabled}>
-          İptal
-        </Button>
-        <Button onClick={onSave} disabled={saving || disabled}>
-          {saving ? "Kaydediliyor…" : "Kaydet"}
-        </Button>
-      </div>
+    <div className="mt-6 flex justify-end gap-2">
+      <Button
+        variant="secondary"
+        onClick={() => router.push(backTo)}
+        disabled={saving || disabled}
+      >
+        İptal
+      </Button>
+
+      <Button onClick={onSave} disabled={saving || disabled}>
+        {saving ? "Kaydediliyor…" : "Kaydet"}
+      </Button>
     </div>
   );
 }
