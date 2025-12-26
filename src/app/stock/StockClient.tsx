@@ -39,7 +39,7 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
 
   const handleFilterChange = (status: StockStatusFilter) => {
     setFilterStatus(status);
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams.toString());
     if (status === 'all') {
       params.delete('filter');
     } else {

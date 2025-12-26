@@ -1,13 +1,16 @@
+
 'use client';
 
 import React, { useState } from 'react';
-import TopBar from '@/components/ui/TopBar';
+import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { PackageSearch, UploadCloud, FileText } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { safeFrom } from '@/lib/nav';
 
 type ParsedItem = {
   productSku: string;
@@ -23,12 +26,15 @@ type ParsedDraft = {
   rawText?: string;
 };
 
-export default function ImportOrdersPage() {
+function ImportOrderContent() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [result, setResult] = useState<ParsedDraft | null>(null);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
+
+  const fallbackUrl = safeFrom(searchParams.get('from'), '/orders');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -100,21 +106,8 @@ export default function ImportOrdersPage() {
 
   return (
     <div className="flex flex-col min-h-dvh bg-app-bg">
-      <TopBar title="PDF Sipariş Import" />
-      <div className="p-4 max-w-4xl mx-auto w-full space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <PackageSearch className="w-5 h-5" />
-              Logo Siparişi → QRStock Taslağı
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Satın alma PDF&apos;ini yükle, bizden sipariş taslağı çıksın. Şimdilik sadece iskelet;
-              sonraki adımda gerçek parse mantığını dolduracağız.
-            </p>
-          </div>
-        </div>
-
+      <PageHeader title="PDF Sipariş İçe Aktar" fallback={fallbackUrl} />
+      <div className="p-4 pt-0 max-w-4xl mx-auto w-full space-y-4">
         <Card>
           <CardHeader>
             <CardTitle>PDF Yükle</CardTitle>
@@ -153,7 +146,7 @@ export default function ImportOrdersPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
-                Parse Edilen Sipariş Taslağı
+                Ayrıştırılan Sipariş Taslağı
               </CardTitle>
               <CardDescription>
                 Bu ekran şu anda taslak (iskelet). Bir sonraki adımda gerçek PDF parse mantığını
@@ -219,4 +212,12 @@ export default function ImportOrdersPage() {
       </div>
     </div>
   );
+}
+
+export default function ImportOrdersPage() {
+    return (
+        <Suspense>
+            <ImportOrderContent />
+        </Suspense>
+    )
 }
