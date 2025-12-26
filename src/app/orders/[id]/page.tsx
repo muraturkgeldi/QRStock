@@ -1,3 +1,4 @@
+
 'use client';
 
 import { notFound, useRouter, usePathname } from 'next/navigation';
@@ -422,7 +423,11 @@ function OrderDetailContent({
             )}
             {isAdmin && (
                 <AlertDialog>
-                    <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Kalıcı Sil</Button></AlertDialogTrigger>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                            <Trash2 className="mr-2 h-4 w-4" /> Kalıcı Sil
+                        </Button>
+                    </AlertDialogTrigger>
                     <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Siparişi kalıcı olarak silmek istediğinize emin misiniz?</AlertDialogTitle></AlertDialogHeader>
                     <AlertDialogDescription>Bu işlem geri alınamaz. Bu siparişe ait tüm veriler sistemden kalıcı olarak silinecektir.</AlertDialogDescription>

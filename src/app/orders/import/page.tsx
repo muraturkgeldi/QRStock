@@ -112,7 +112,7 @@ function ImportOrderContent() {
           <CardHeader>
             <CardTitle>PDF Yükle</CardTitle>
             <CardDescription>
-              Logo&apos;dan / satın almadan çıkan onay PDF&apos;ini buraya yükleyin.
+              Logo'dan / satın almadan çıkan onay PDF'ini buraya yükleyin.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

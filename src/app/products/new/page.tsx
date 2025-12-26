@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -13,7 +14,7 @@ import { useUser } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/PageHeader';
-import { EditActionBar } from '@/components/ui/EditActionBar';
+import { EditActionBar } from '@/components/EditActionBar';
 import { withFrom, safeFrom } from '@/lib/nav';
 
 /**
@@ -117,6 +118,7 @@ export default function NewProductPage() {
       
       // Yönlendirme: /product/{newId}?from=<geldiği yer>
       router.push(withFrom(`/product/${result.id}`, fallbackUrl));
+      router.refresh();
 
     } catch (error: any) {
       toast({
