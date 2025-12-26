@@ -2,8 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { notFound, useRouter } from 'next/navigation';
-import TopBar from '@/components/ui/TopBar';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { transferStock } from '@/app/actions';
@@ -15,9 +14,13 @@ import type { Product, Location, StockItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRightLeft } from 'lucide-react';
 import { useDoc, useCollection, useUser } from '@/firebase';
+import { PageHeader } from '@/components/PageHeader';
+import { safeFrom } from '@/lib/nav';
+import { EditActionBar } from '@/components/EditActionBar';
 
 export default function TransferStockPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { id: productId } = params;
 
@@ -94,15 +97,17 @@ export default function TransferStockPage({ params }: { params: { id: string } }
   }, [destCorridorId, shelvesByCorridor]);
 
 
-  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSave = async () => {
+    const form = document.getElementById('transfer-stock-form') as HTMLFormElement;
+    if (!form) return;
+
     if (!user) {
         toast({ variant: 'destructive', title: 'Hata', description: 'Bu işlemi yapmak için giriş yapmalısınız.'});
         return;
     }
 
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const quantity = Number(formData.get('quantity'));
     const sourceStockItem = stockItems.find(item => item.locationId === sourceLocationId);
 
@@ -122,15 +127,15 @@ export default function TransferStockPage({ params }: { params: { id: string } }
             title: 'Transfer Başarılı!',
             description: `${quantity} adet ${product?.name} ürünü transfer edildi.`,
         });
-        router.push(`/product/${productId}`);
-        router.refresh();
+        const backTo = safeFrom(searchParams.get('from'), `/product/${productId}`);
+        router.push(backTo);
+        router.refresh(); // Ensure data is refetched on the target page
     } catch(error: any) {
         toast({
             variant: "destructive",
             title: "Hata",
             description: error.message || "Stok transferi sırasında bir hata oluştu."
         });
-    } finally {
         setIsSubmitting(false);
     }
   };
@@ -138,7 +143,7 @@ export default function TransferStockPage({ params }: { params: { id: string } }
   if (isLoading) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <TopBar title="Stok Transferi" />
+        <PageHeader title="Stok Transferi" fallback={`/product/${productId}`} />
         <div className="p-4 text-center">Yükleniyor...</div>
       </div>
     );
@@ -152,7 +157,7 @@ export default function TransferStockPage({ params }: { params: { id: string } }
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-      <TopBar title="Stok Transferi" />
+      <PageHeader title="Stok Transferi" fallback={`/product/${productId}`} />
       <div className="p-4 space-y-4">
         <Card>
           <CardHeader className="flex-row items-center gap-4 space-y-0">
@@ -176,7 +181,7 @@ export default function TransferStockPage({ params }: { params: { id: string } }
             <CardTitle>Transfer Detayları</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleFormSubmit} className="space-y-6">
+            <form id="transfer-stock-form" className="space-y-6">
               <input type="hidden" name="productId" value={product.id} />
               
               <div className="space-y-2">
@@ -255,14 +260,14 @@ export default function TransferStockPage({ params }: { params: { id: string } }
                   </div>
                 )}
               </div>
-
-              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || !sourceLocationId || !destCorridorId || !destShelves || destShelves.length === 0}>
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Transfer Et
-              </Button>
             </form>
           </CardContent>
         </Card>
+        <EditActionBar 
+            fallback={safeFrom(searchParams.get('from'), `/product/${productId}`)}
+            onSave={handleSave}
+            saving={isSubmitting || !sourceLocationId || !destCorridorId || !destShelves || destShelves.length === 0}
+        />
       </div>
     </div>
   );

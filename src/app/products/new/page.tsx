@@ -11,8 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { addProduct } from '@/app/actions';
 import { useUser } from '@/firebase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/PageHeader';
+import { EditActionBar } from '@/components/EditActionBar';
+import { withFrom, safeFrom } from '@/lib/nav';
 
 /**
  * Basit tag alanı
@@ -88,28 +91,38 @@ export default function NewProductPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  
+  const from = searchParams.get('from');
 
-  async function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsSubmitting(true);
+  const handleSave = async () => {
+    // Manually gather form data to avoid full page reload from form element
+    const form = document.getElementById('new-product-form') as HTMLFormElement;
+    if (!form) return;
     
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
+    const sku = formData.get('sku') as string;
+    
+    setIsSubmitting(true);
 
     try {
-        await addProduct(formData);
-        toast({
-          title: 'Ürün Oluşturuldu!',
-          description: `"${formData.get('name')}" başarıyla eklendi.`,
-        });
-        router.push('/stock');
+      await addProduct(formData);
+      toast({
+        title: 'Ürün Oluşturuldu!',
+        description: `"${formData.get('name')}" başarıyla eklendi.`,
+      });
+      // Redirect to the new product's detail page, preserving the original 'from'
+      // which should be the list page.
+      const newId = sku.replace(/[^a-zA-Z0-9-]/g, '-');
+      router.push(withFrom(`/product/${newId}`, safeFrom(from, '/products')));
+
     } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Hata!',
-            description: error.message || 'Ürün oluşturulurken bir hata oluştu.',
-        });
-    } finally {
+      toast({
+        variant: 'destructive',
+        title: 'Hata!',
+        description: error.message || 'Ürün oluşturulurken bir hata oluştu.',
+      });
       setIsSubmitting(false);
     }
   };
@@ -117,7 +130,7 @@ export default function NewProductPage() {
   if (userLoading) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <TopBar title="Yeni Ürün Ekle" />
+        <PageHeader title="Yeni Ürün Ekle" fallback="/products" />
         <div className="p-4 text-center">Yükleniyor...</div>
       </div>
     );
@@ -126,7 +139,7 @@ export default function NewProductPage() {
   if (!user) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <TopBar title="Yeni Ürün Ekle" />
+        <PageHeader title="Yeni Ürün Ekle" fallback="/products" />
         <div className="p-4 text-center">
           Oturum bulunamadı. Lütfen tekrar giriş yap.
         </div>
@@ -136,7 +149,7 @@ export default function NewProductPage() {
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-      <TopBar title="Yeni Ürün Ekle" />
+      <PageHeader title="Yeni Ürün Ekle" fallback="/products" />
       <div className="p-4">
         <Card>
           <CardHeader>
@@ -144,8 +157,8 @@ export default function NewProductPage() {
             <CardDescription>Stok sistemine yeni bir ürün ekleyin.</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Server action */}
-            <form onSubmit={handleFormSubmit} className="space-y-6">
+            {/* We use a div as form to prevent default submission */}
+            <form id="new-product-form" className="space-y-6">
               {/* 🔥 UID'i forma gömüyoruz */}
               <input type="hidden" name="uid" value={user.uid} />
 
@@ -194,13 +207,14 @@ export default function NewProductPage() {
                   disabled={isSubmitting}
                 />
               </div>
-
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Kaydediliyor...' : 'Kaydet ve Stoka Dön'}
-              </Button>
             </form>
           </CardContent>
         </Card>
+        <EditActionBar
+          fallback={safeFrom(from, "/products")}
+          onSave={handleSave}
+          saving={isSubmitting}
+        />
       </div>
     </div>
   );

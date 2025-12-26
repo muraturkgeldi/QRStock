@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { notFound, useRouter } from 'next/navigation';
-import TopBar from '@/components/ui/TopBar';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { updateStock } from '@/app/actions';
@@ -16,10 +15,14 @@ import type { Product, Location } from '@/lib/types';
 import { useDoc, useCollection, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/PageHeader';
+import { EditActionBar } from '@/components/EditActionBar';
+import { safeFrom } from '@/lib/nav';
 
 
 export default function UpdateStockPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { id: productId } = params;
   const { user, loading: userLoading } = useUser();
@@ -37,8 +40,10 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
   // Bind the server action with the user's UID
   const updateStockWithUid = user?.uid ? updateStock.bind(null, user.uid) : undefined;
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSave = async () => {
+    const form = document.getElementById('update-stock-form') as HTMLFormElement;
+    if (!form) return;
+
     if (!updateStockWithUid) {
         toast({
             variant: "destructive",
@@ -49,7 +54,7 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
     }
 
     setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     try {
         const result = await updateStockWithUid(formData);
         if (result.ok) {
@@ -57,7 +62,8 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
                 title: "Başarılı!",
                 description: "Stok başarıyla güncellendi."
             });
-            router.push(`/product/${productId}`);
+            const backTo = safeFrom(searchParams.get('from'), `/product/${productId}`);
+            router.push(backTo);
             router.refresh();
         } else {
             throw new Error(result.error || "Bilinmeyen bir hata oluştu.");
@@ -105,7 +111,7 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
   if (isLoading) {
     return (
       <div className="flex flex-col bg-app-bg min-h-dvh">
-        <TopBar title="Stok Güncelle" />
+        <PageHeader title="Stok Güncelle" fallback={`/product/${productId}`} />
         <div className="p-4 text-center">Yükleniyor...</div>
       </div>
     );
@@ -117,7 +123,7 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="flex flex-col bg-app-bg min-h-dvh">
-      <TopBar title="Stok Güncelle" />
+      <PageHeader title="Stok Güncelle" fallback={`/product/${productId}`} />
       <div className="p-4 space-y-4">
         <Card>
           <CardHeader className="flex-row items-center gap-4 space-y-0">
@@ -141,7 +147,7 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
             <CardTitle>Stok Hareketi</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id="update-stock-form" className="space-y-6">
               <input type="hidden" name="productId" value={product.id} />
               
               <div className="space-y-2">
@@ -254,14 +260,14 @@ export default function UpdateStockPage({ params }: { params: { id: string } }) 
                   placeholder="İşlemle ilgili bir not ekleyin..."
                 />
               </div>
-
-
-              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || !selectedCorridor || (shelves && shelves.length === 0) || !updateStockWithUid}>
-                {isSubmitting ? 'Güncelleniyor...' : 'Stok Güncelle'}
-              </Button>
             </form>
           </CardContent>
         </Card>
+        <EditActionBar
+          fallback={safeFrom(searchParams.get('from'), `/product/${productId}`)}
+          onSave={handleSave}
+          saving={isSubmitting || !selectedCorridor || (shelves && shelves.length === 0) || !updateStockWithUid}
+        />
       </div>
     </div>
   );
