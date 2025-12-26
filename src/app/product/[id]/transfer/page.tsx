@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { transferStock } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -266,7 +266,8 @@ export default function TransferStockPage({ params }: { params: { id: string } }
         <EditActionBar 
             fallback={safeFrom(searchParams.get('from'), `/product/${productId}`)}
             onSave={handleSave}
-            saving={isSubmitting || !sourceLocationId || !destCorridorId || !destShelves || destShelves.length === 0}
+            saving={isSubmitting}
+            disabled={!sourceLocationId || !destCorridorId || !destShelves || destShelves.length === 0}
         />
       </div>
     </div>

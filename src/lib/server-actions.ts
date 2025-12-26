@@ -33,6 +33,8 @@ import { adminAuth, adminDb } from '@/lib/admin.server';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, runTransaction, getDoc, collectionGroup, writeBatch, where } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firestore.server';
+import { FieldValue } from 'firebase-admin/firestore';
+import { recordOrderEvent } from './order-audit';
 
 
 const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET || 'dev-secret');
@@ -790,7 +792,7 @@ export async function updateUserDisplayName(userId: string, displayName: string)
         throw error;
     }
 }
-async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin: boolean, uid: string | null }> {
+export async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin: boolean, uid: string | null }> {
     if (!sessionCookie) {
         return { isAdmin: false, uid: null };
     }
@@ -811,3 +813,21 @@ async function verifyAdminRole(sessionCookie?: string | null): Promise<{ isAdmin
 }
     
     
+export { 
+    addProductToDB,
+    updateStockInDB,
+    updateProductInDB,
+    transferStockInDB,
+    batchAddLocations,
+    batchAddProducts,
+    getMailingList,
+    addEmailToMailingListInDB,
+    removeEmailFromMailingListInDB,
+    batchUpdateSkus,
+    updateLocationNameInDB,
+    deleteLocationAndChildren,
+    createPurchaseOrderInDB,
+    receivePurchaseOrderItemInDB,
+    updatePurchaseOrderInDB,
+    updateUserDisplayNameInDB
+};

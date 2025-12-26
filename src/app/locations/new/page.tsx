@@ -1,6 +1,7 @@
 
 'use client';
 
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EditActionBar } from '@/components/EditActionBar';
 import { safeFrom } from '@/lib/nav';
 
-export default function NewLocationPage() {
+function NewLocationPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -166,4 +167,13 @@ export default function NewLocationPage() {
       </div>
     </div>
   );
+}
+
+
+export default function NewLocationPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-center">Yükleniyor...</div>}>
+      <NewLocationPageContent />
+    </Suspense>
+  )
 }
