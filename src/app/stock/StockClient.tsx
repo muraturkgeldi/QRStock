@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +10,8 @@ import { Search, ScanLine, Plus, Boxes, Package, AlertTriangle, XCircle } from '
 import type { Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useSearchParams } from 'next/navigation';
+import LinkWithFrom from '@/components/ui/LinkWithFrom';
+import Link from 'next/link';
 
 type StockStatusFilter = 'all' | 'low' | 'outOfStock' | 'sufficient';
 
@@ -191,9 +192,9 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
               Tükenmiş
             </button>
             <Button asChild size="sm" className="bg-emerald-600 text-primary-foreground hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800 rounded-full">
-                <Link href="/products/new">
+                <LinkWithFrom href="/products/new">
                     <Plus className="mr-2 h-4 w-4" /> Yeni
-                </Link>
+                </LinkWithFrom>
             </Button>
         </div>
       </div>
@@ -202,7 +203,7 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
            <p className="text-center text-muted-foreground pt-8">Sistemde kayıtlı ürün bulunmuyor.</p>
         ) : filteredProducts.length > 0 ? (
           filteredProducts.map((product) => (
-            <Link href={`/product/${product.id}`} key={product.id}>
+            <LinkWithFrom href={`/product/${product.id}`} key={product.id}>
               <Card className="rounded-2xl border border-transparent hover:border-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-500/5">
                 <CardContent className="p-4 flex items-center gap-4">
                   <Image
@@ -230,7 +231,7 @@ export function StockClient({ initialProducts }: { initialProducts: EnrichedProd
                   </div>
                 </CardContent>
               </Card>
-            </Link>
+            </LinkWithFrom>
           ))
         ) : (
           <p className="text-center text-muted-foreground pt-8">
