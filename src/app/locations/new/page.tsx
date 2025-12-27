@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense } from 'react';
@@ -36,7 +35,7 @@ function NewLocationPageContent() {
   const corridors = useMemo(() => locations.filter(l => l.type === 'corridor' && l.parentId === parentWarehouse), [locations, parentWarehouse]);
 
   const isSaveDisabled = () => {
-    if (isLoading) return true;
+    if (isLoading || isSubmitting) return true;
     if (locationType === 'corridor' && !parentWarehouse) return true;
     if (locationType === 'shelf' && !parentCorridor) return true;
     return false;
