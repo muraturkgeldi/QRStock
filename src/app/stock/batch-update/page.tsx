@@ -1,9 +1,7 @@
 'use client';
 
-import { Suspense } from 'react';
-import { PageHeader } from '@/components/PageHeader';
+import { Suspense, useState, useMemo } from 'react';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useMemo } from 'react';
 import { useCollection, useUser } from '@/firebase';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -17,9 +15,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Boxes } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/PageHeader';
+import { EditActionBar } from '@/components/EditActionBar';
 import { safeFrom } from '@/lib/nav';
 import type { Product, Location } from '@/lib/types';
-import { EditActionBar } from '@/components/EditActionBar';
 
 function BatchUpdateContent() {
     const router = useRouter();
@@ -190,6 +189,7 @@ function BatchUpdateContent() {
                   fallback={fallbackUrl}
                   onSave={handleSave}
                   saving={isSubmitting}
+                  disabled={isLoading || !user}
                 />
             </div>
         </div>
