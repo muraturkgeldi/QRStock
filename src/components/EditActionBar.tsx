@@ -19,7 +19,7 @@ export function EditActionBar({
   const sp = useSearchParams();
   const backTo = safeFrom(sp.get("from"), fallback);
 
-  const isDisabled = saving || disabled;
+  const isDisabled = disabled || saving;
 
   return (
     <div className="mt-6 flex justify-end">
@@ -27,7 +27,7 @@ export function EditActionBar({
         <Button
           variant="secondary"
           onClick={() => router.push(backTo)}
-          disabled={saving}
+          disabled={isDisabled}
         >
           İptal
         </Button>

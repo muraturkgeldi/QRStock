@@ -5,7 +5,6 @@ import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useUser } from '@/firebase';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { updateStock } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -19,6 +18,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EditActionBar } from '@/components/EditActionBar';
 import { safeFrom } from '@/lib/nav';
 import type { Product, Location } from '@/lib/types';
+import { updateStock } from '@/app/actions';
 
 function BatchUpdateContent() {
     const router = useRouter();
@@ -189,7 +189,7 @@ function BatchUpdateContent() {
                   fallback={fallbackUrl}
                   onSave={handleSave}
                   saving={isSubmitting}
-                  disabled={isLoading || !user}
+                  disabled={isLoading || productIds.length === 0}
                 />
             </div>
         </div>
