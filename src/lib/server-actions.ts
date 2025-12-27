@@ -13,7 +13,7 @@ async function addProductToDB(uid: string, productData: Omit<Product, 'id' | 'ui
 
     const placeholder = placeholderProducts[Math.floor(Math.random() * placeholderProducts.length)];
 
-    await setDoc(newProductRef, {
+    await db.collection('products').doc(newProductRef.id).set({
         ...productData,
         uid,
         createdAt: serverTimestamp(),
@@ -322,7 +322,7 @@ async function createPurchaseOrderInDB(orderData: any) {
         createdBy: orderData.userInfo,
     };
     
-    await setDoc(newOrderRef, finalOrderData);
+    await newOrderRef.set(finalOrderData);
     
     return { id: newOrderRef.id, orderNumber: newOrderNumber };
 }
@@ -402,7 +402,7 @@ async function updatePurchaseOrderInDB(orderId: string, uid: string, items: any[
 
 async function updateUserDisplayNameInDB(userId: string, displayName: string) {
     const db = adminDb();
-    const auth = adminAuth();
+    const auth = (await import('firebase-admin/auth')).getAuth();
 
     const userRef = doc(db, 'users', userId);
     
