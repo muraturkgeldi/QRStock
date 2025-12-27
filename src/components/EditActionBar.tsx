@@ -12,8 +12,8 @@ export function EditActionBar({
 }: {
   fallback: string;
   onSave: () => Promise<void> | void;
-  saving?: boolean;    // sadece "işlem devam ediyor"
-  disabled?: boolean;  // form invalid / koşul sağlanmadı vs.
+  saving?: boolean;
+  disabled?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -27,7 +27,7 @@ export function EditActionBar({
         <Button
           variant="secondary"
           onClick={() => router.push(backTo)}
-          disabled={isDisabled}
+          disabled={saving}
         >
           İptal
         </Button>

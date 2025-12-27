@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { Location } from '@/lib/types';
 import { addLocation } from '@/app/actions';
 import { useCollection, useUser } from '@/firebase';
-import { useState, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/PageHeader';
 import { EditActionBar } from '@/components/EditActionBar';
@@ -81,7 +80,7 @@ function NewLocationPageContent() {
         case 'shelf':
              return (
                 <>
-                    <Textarea id="name" name="name" placeholder="A-01-30&#10;B-01-15" required rows={5} disabled={isSubmitting} />_
+                    <Textarea id="name" name="name" placeholder="A-01-30&#10;B-01-15" required rows={5} disabled={isSubmitting} />
                     <p className="text-xs text-muted-foreground">Seri oluşturmak için `A-01-30` gibi bir kalıp veya her rafı yeni bir satıra yazın.</p>
                 </>
             );
