@@ -13,9 +13,14 @@ export default function LinkWithFrom({ href, children, ...rest }: Props) {
   const pathname = usePathname();
   const sp = useSearchParams();
 
-  // Determine the 'from' value. Prioritize the 'from' in the current URL.
-  // If it doesn't exist, use the current pathname as the fallback.
-  const fromValue = sp.get("from") || pathname;
+  // If a 'from' param already exists in the current URL, preserve it.
+  const fromParam = sp.get("from");
+
+  // Otherwise, construct the 'from' value from the current full URL (pathname + query string)
+  const qs = sp.toString();
+  const currentUrl = `${pathname}${qs ? `?${qs}` : ""}`;
+
+  const fromValue = fromParam || currentUrl;
 
   const hrefStr = typeof href === "string" ? href : href.pathname?.toString() ?? "";
   

@@ -12,14 +12,15 @@ export function EditActionBar({
 }: {
   fallback: string;
   onSave: () => Promise<void> | void;
-  saving?: boolean;
-  disabled?: boolean;
+  saving?: boolean;    // sadece "işlem devam ediyor"
+  disabled?: boolean;  // form invalid / koşul sağlanmadı vs.
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const backTo = safeFrom(sp.get("from"), fallback);
 
-  const isDisabled = saving || disabled;
+  const isBusy = !!saving;
+  const isDisabled = isBusy || !!disabled;
 
   return (
     <div className="mt-6 flex justify-end">
@@ -27,13 +28,13 @@ export function EditActionBar({
         <Button
           variant="secondary"
           onClick={() => router.push(backTo)}
-          disabled={isDisabled}
+          disabled={isBusy}
         >
           İptal
         </Button>
 
         <Button onClick={onSave} disabled={isDisabled}>
-          {saving ? "Kaydediliyor…" : "Kaydet"}
+          {isBusy ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
     </div>
