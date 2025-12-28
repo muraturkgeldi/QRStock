@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -28,10 +27,7 @@ const buttonVariants = cva(
         icon: "h-10 w-10",
       },
     },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
+    defaultVariants: { variant: "default", size: "default" },
   }
 );
 
@@ -41,18 +37,21 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp: any = asChild ? Slot : "button";
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    );
-  }
-);
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>((allProps, ref) => {
+  // asChild'i props'tan KESİN düşür
+  const { asChild = false, className, variant, size, ...rest } = allProps;
+
+  // Slot kullanınca ref tipi bazen uyuzluk yapıyor, any ile stabilize ediyoruz
+  const Comp: any = asChild ? Slot : "button";
+
+  return (
+    <Comp
+      ref={ref}
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...rest}
+    />
+  );
+});
 Button.displayName = "Button";
 
 export { Button, buttonVariants };

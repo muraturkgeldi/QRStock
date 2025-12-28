@@ -19,7 +19,8 @@ export function EditActionBar({
   const sp = useSearchParams();
   const backTo = safeFrom(sp.get("from"), fallback);
 
-  const isDisabled = disabled || saving;
+  const isBusy = !!saving;
+  const isSaveDisabled = isBusy || !!disabled;
 
   return (
     <div className="mt-6 flex justify-end">
@@ -27,13 +28,13 @@ export function EditActionBar({
         <Button
           variant="secondary"
           onClick={() => router.push(backTo)}
-          disabled={isDisabled}
+          disabled={isBusy}
         >
           İptal
         </Button>
 
-        <Button onClick={onSave} disabled={isDisabled}>
-          {saving ? "Kaydediliyor…" : "Kaydet"}
+        <Button onClick={onSave} disabled={isSaveDisabled}>
+          {isBusy ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
     </div>
